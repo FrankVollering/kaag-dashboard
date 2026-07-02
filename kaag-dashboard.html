@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>De Kaag · Home Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --deep:#0d1a22;        /* lake at dusk */
+    --panel:#14242e;
+    --panel-2:#112029;
+    --hairline:#213a47;
+    --foam:#eaf2ef;        /* primary text */
+    --mist:#8ca6ac;        /* secondary text */
+    --buoy:#ff8a3d;        /* accent: buoy orange */
+    --sun:#f2c94c;         /* PV */
+    --breeze:#6fd3e0;      /* wind */
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{background:var(--deep)}
+  body{
+    font-family:'Archivo',system-ui,sans-serif;
+    color:var(--foam);
+    background:
+      radial-gradient(1100px 500px at 80% -10%, rgba(111,211,224,.06), transparent 60%),
+      var(--deep);
+    height:100vh;
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    padding:14px clamp(14px,2vw,28px) 10px;
+  }
+  a{color:var(--breeze);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .mono{font-family:'IBM Plex Mono',monospace}
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;
+    padding-bottom:10px;margin-bottom:12px;flex:0 0 auto;
+    border-bottom:1px solid var(--hairline);
+  }
+  .wordmark{
+    font-family:'Bricolage Grotesque',sans-serif;font-weight:700;
+    font-size:clamp(18px,2vw,24px);letter-spacing:.01em;
+  }
+  .wordmark em{font-style:normal;color:var(--buoy)}
+  .sub{color:var(--mist);font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
+  .clock{margin-left:auto;display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--mist)}
+  .clock b{color:var(--foam);font-weight:500;font-size:17px}
+  .dot{width:8px;height:8px;border-radius:50%;background:#39d98a;box-shadow:0 0 8px #39d98a;animation:pulse 2.4s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){.dot{animation:none}}
+
+  /* ---------- grid: 3 × 2, fills the rest of the screen ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(2,1fr);
+    gap:12px;
+    flex:1;min-height:0;
+  }
+  .card{
+    background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid var(--hairline);
+    border-radius:var(--radius);
+    padding:14px;
+    min-width:0;min-height:0;
+    display:flex;flex-direction:column;
+    overflow:hidden;
+  }
+  .card h2{
+    font-family:'IBM Plex Mono',monospace;font-weight:500;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--mist);margin-bottom:10px;flex:0 0 auto;
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  }
+  .card h2 .tag{
+    margin-left:auto;font-size:9px;letter-spacing:.1em;
+    border:1px solid var(--hairline);border-radius:99px;padding:2px 8px;color:var(--mist);
+  }
+  .card.empty{
+    border-style:dashed;background:none;
+    align-items:center;justify-content:center;gap:8px;
+    color:var(--mist);font-family:'IBM Plex Mono',monospace;
+  }
+  .card.empty .plus{
+    width:34px;height:34px;border:1px dashed var(--hairline);border-radius:50%;
+    display:grid;place-items:center;font-size:18px;color:var(--hairline);
+  }
+  .card.empty p{font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.6}
+
+  /* ---------- weather ---------- */
+  #wxBody{display:flex;flex-direction:column;flex:1;min-height:0}
+  .wx-now{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .wx-temp{
+    font-family:'Bricolage Grotesque',sans-serif;font-weight:700;
+    font-size:44px;line-height:1;letter-spacing:-.02em;
+  }
+  .wx-icon{font-size:34px;line-height:1}
+  .wx-desc{font-size:14px;color:var(--foam)}
+  .wx-desc small{display:block;color:var(--mist);margin-top:2px;font-size:12px}
+  .wx-meta{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+    margin-top:10px;padding-top:10px;border-top:1px dashed var(--hairline);
+  }
+  .wx-meta div{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--foam)}
+  .wx-meta span{display:block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--mist);margin-bottom:3px}
+  .hours{
+    display:flex;gap:6px;overflow-x:auto;margin-top:auto;padding-top:10px;padding-bottom:2px;
+    scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;flex:0 0 auto;
+  }
+  .hour{
+    flex:0 0 60px;text-align:center;border:1px solid var(--hairline);border-radius:10px;
+    padding:6px 3px;font-family:'IBM Plex Mono',monospace;
+  }
+  .hour .t{font-size:10px;color:var(--mist)}
+  .hour .i{font-size:17px;margin:3px 0}
+  .hour .c{font-size:12px}
+  .hour .r{font-size:9px;color:var(--breeze);margin-top:2px}
+  .hour .w{font-size:9px;color:var(--mist);margin-top:2px}
+  .hour.now{border-color:var(--buoy)}
+  .err{color:#ff9a76;font-size:13px;font-family:'IBM Plex Mono',monospace}
+
+  /* ---------- wind map ---------- */
+  .mapwrap{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--hairline);flex:1;min-height:120px}
+  #map{height:100%;width:100%;background:#0b161d}
+  #windCanvas{position:absolute;inset:0;pointer-events:none;z-index:500}
+  .timebar{
+    display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;flex:0 0 auto;
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--mist);
+  }
+  .timebar button{
+    background:none;border:1px solid var(--hairline);color:var(--foam);
+    border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit;font-size:11px;
+  }
+  .timebar button:hover{border-color:var(--breeze)}
+  .track{flex:1;min-width:80px;height:4px;background:var(--hairline);border-radius:2px;position:relative}
+  .track i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--breeze);border-radius:2px}
+  .tlabel{color:var(--foam);min-width:118px}
+  .legend{display:flex;gap:10px;font-size:10px}
+  .legend b{font-weight:500}
+  .lg{display:inline-block;width:16px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
+
+  /* ---------- cams ---------- */
+  .cam{position:relative;width:100%;flex:1;min-height:120px;border-radius:10px;overflow:hidden;border:1px solid var(--hairline);background:#000}
+  .cam iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+
+  /* ---------- PV ---------- */
+  .pv-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;flex:0 0 auto}
+  .stat{border:1px solid var(--hairline);border-radius:10px;padding:7px 10px}
+  .stat span{display:block;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--mist);margin-bottom:3px}
+  .stat b{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:17px;letter-spacing:-.01em}
+  .stat b small{font-size:11px;color:var(--mist);font-weight:500;margin-left:2px}
+  .stat.sun b{color:var(--sun)}
+  #pvChart{width:100%;flex:1;min-height:100px;display:block}
+  .demo{
+    font-size:9px;letter-spacing:.08em;border:1px dashed var(--sun);color:var(--sun);
+    border-radius:99px;padding:2px 8px;font-family:'IBM Plex Mono',monospace;
+  }
+
+  footer{margin-top:8px;flex:0 0 auto;color:var(--mist);font-size:10px;font-family:'IBM Plex Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* Leaflet dark-fit tweaks */
+  .leaflet-container{font-family:'Archivo',sans-serif}
+  .leaflet-control-attribution{background:rgba(13,26,34,.8)!important;color:var(--mist)!important;font-size:9px!important}
+  .leaflet-control-attribution a{color:var(--breeze)!important}
+
+  /* ---------- small screens: fall back to a scrolling column ---------- */
+  @media (max-width:1100px){
+    body{height:auto;overflow:auto}
+    .grid{grid-template-columns:1fr;grid-template-rows:none}
+    .mapwrap{height:300px;flex:none}
+    .cam{flex:none;aspect-ratio:16/9;min-height:0}
+    #pvChart{flex:none;height:220px}
+    .card.empty{display:none}
+    footer{white-space:normal}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="wordmark">De Kaag <em>·</em> Huispost</div>
+    <div class="sub">Kaag en Braassem · 52.216 N 4.556 E</div>
+  </div>
+  <div class="clock"><span class="dot"></span><span id="dateLine">—</span><b id="clockLine">--:--</b></div>
+</header>
+
+<div class="grid">
+
+  <!-- ROW 1 -->
+  <!-- WEATHER -->
+  <section class="card">
+    <h2>Weather — Kaag <span class="tag" id="wxUpdated">loading…</span></h2>
+    <div id="wxBody">
+      <div class="wx-now">
+        <div class="wx-icon" id="wxIcon">⛅</div>
+        <div class="wx-temp" id="wxTemp">--°</div>
+        <div class="wx-desc"><span id="wxDesc">Fetching forecast…</span><small id="wxRange">min --° · max --°</small></div>
+      </div>
+      <div class="wx-meta">
+        <div><span>Wind</span><span id="wxWind">--</span></div>
+        <div><span>Gusts</span><span id="wxGust">--</span></div>
+        <div><span>Feels like</span><span id="wxFeel">--</span></div>
+        <div><span>Humidity</span><span id="wxHum">--</span></div>
+        <div><span>Sunrise</span><span id="wxRise">--</span></div>
+        <div><span>Sunset</span><span id="wxSet">--</span></div>
+      </div>
+      <div class="hours" id="wxHours"></div>
+    </div>
+  </section>
+
+  <!-- WIND MAP -->
+  <section class="card">
+    <h2>Wind — Kagerplassen <span class="tag">next 3 h</span></h2>
+    <div class="mapwrap">
+      <div id="map"></div>
+      <canvas id="windCanvas"></canvas>
+    </div>
+    <div class="timebar">
+      <button id="playBtn" aria-label="Play or pause the wind animation">⏸</button>
+      <span class="tlabel" id="timeLabel">Now</span>
+      <div class="track"><i id="trackFill"></i></div>
+      <span class="legend">
+        <span><i class="lg" style="background:#6fd3e0"></i><b>light</b></span>
+        <span><i class="lg" style="background:#f2c94c"></i><b>fresh</b></span>
+        <span><i class="lg" style="background:#ff8a3d"></i><b>strong</b></span>
+      </span>
+    </div>
+    <div class="err" id="windErr" style="margin-top:6px;display:none"></div>
+  </section>
+
+  <!-- CAM 1 -->
+  <section class="card">
+    <h2>Pontcam — Kaag ferry <span class="tag">live</span></h2>
+    <div class="cam">
+      <iframe src="https://g0.ipcamlive.com/player/player.php?alias=5f11a99d77f3c&autoplay=1&mutestream=1"
+              allow="autoplay; fullscreen" allowfullscreen loading="lazy" title="Live camera 1 — Kaag ferry"></iframe>
+    </div>
+  </section>
+
+  <!-- ROW 2 -->
+  <!-- PV -->
+  <section class="card">
+    <h2>Solar — 5.0 kWp <span class="demo">demo · not connected</span></h2>
+    <div class="pv-stats">
+      <div class="stat sun"><span>Now</span><b id="pvNow">-- <small>kW</small></b></div>
+      <div class="stat"><span>So far</span><b id="pvToday">-- <small>kWh</small></b></div>
+      <div class="stat"><span>Expected</span><b id="pvExp">-- <small>kWh</small></b></div>
+      <div class="stat"><span>Peak</span><b id="pvPeak">-- <small>kW</small></b></div>
+    </div>
+    <canvas id="pvChart"></canvas>
+  </section>
+
+  <!-- FREE SLOT -->
+  <section class="card empty" aria-label="Free slot for a future module">
+    <div class="plus">+</div>
+    <p>Free slot — next module</p>
+  </section>
+
+  <!-- CAM 2 -->
+  <section class="card">
+    <h2>Pontcam — second view <span class="tag">live</span></h2>
+    <div class="cam">
+      <iframe src="https://g0.ipcamlive.com/player/player.php?alias=643553862c07a&autoplay=1&mutestream=1"
+              allow="autoplay; fullscreen" allowfullscreen loading="lazy" title="Live camera 2 — Kaag"></iframe>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  Forecast &amp; wind field: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (free, no key) ·
+  Live cameras: <a href="https://kaag-pontcam.nl" target="_blank" rel="noopener">kaag-pontcam.nl</a> (Royal van Lent Shipyard — Feadship) ·
+  Map: © OpenStreetMap contributors, © CARTO · Solar graph uses simulated data until the inverter is linked.
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+/* ============================================================
+   De Kaag home dashboard
+   - Weather + wind: Open-Meteo (free, CORS-enabled, no API key)
+   - Cameras: IPCamLive players from kaag-pontcam.nl
+   - PV: deterministic dummy data for a 5 kWp system
+============================================================ */
+
+const KAAG = { lat: 52.216, lon: 4.556 };
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- clock ---------- */
+function tickClock(){
+  const n = new Date();
+  document.getElementById("clockLine").textContent =
+    n.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+  document.getElementById("dateLine").textContent =
+    n.toLocaleDateString("en-GB",{weekday:"long", day:"numeric", month:"long"});
+}
+tickClock(); setInterval(tickClock, 15000);
+
+/* ---------- helpers ---------- */
+const WMO = {
+  0:["Clear sky","☀️"],1:["Mostly clear","🌤️"],2:["Partly cloudy","⛅"],3:["Overcast","☁️"],
+  45:["Fog","🌫️"],48:["Rime fog","🌫️"],51:["Light drizzle","🌦️"],53:["Drizzle","🌦️"],
+  55:["Heavy drizzle","🌧️"],56:["Freezing drizzle","🌧️"],57:["Freezing drizzle","🌧️"],
+  61:["Light rain","🌦️"],63:["Rain","🌧️"],65:["Heavy rain","🌧️"],66:["Freezing rain","🌧️"],
+  67:["Freezing rain","🌧️"],71:["Light snow","🌨️"],73:["Snow","🌨️"],75:["Heavy snow","❄️"],
+  77:["Snow grains","🌨️"],80:["Light showers","🌦️"],81:["Showers","🌧️"],82:["Heavy showers","⛈️"],
+  85:["Snow showers","🌨️"],86:["Snow showers","🌨️"],95:["Thunderstorm","⛈️"],
+  96:["Thunder + hail","⛈️"],99:["Thunder + hail","⛈️"]
+};
+const wmo = c => WMO[c] || ["—","🌡️"];
+const COMPASS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+const compass = d => COMPASS[Math.round(((d % 360) / 22.5)) % 16];
+function beaufort(kn){
+  const t = [1,3,6,10,16,21,27,33,40,47,55,63];
+  for (let i = 0; i < t.length; i++) if (kn < t[i]) return i;
+  return 12;
+}
+const fmtHM = unix => new Date(unix * 1000).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+
+/* ============================================================
+   1. WEATHER CARD
+============================================================ */
+async function loadWeather(){
+  const url = "https://api.open-meteo.com/v1/forecast"
+    + `?latitude=${KAAG.lat}&longitude=${KAAG.lon}`
+    + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m"
+    + "&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m"
+    + "&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset"
+    + "&wind_speed_unit=kn&timeformat=unixtime&timezone=Europe%2FAmsterdam&forecast_days=2";
+  try{
+    const d = await (await fetch(url)).json();
+    const c = d.current;
+    const [desc, icon] = wmo(c.weather_code);
+    document.getElementById("wxIcon").textContent = icon;
+    document.getElementById("wxTemp").textContent = Math.round(c.temperature_2m) + "°";
+    document.getElementById("wxDesc").textContent = desc;
+    document.getElementById("wxRange").textContent =
+      `min ${Math.round(d.daily.temperature_2m_min[0])}° · max ${Math.round(d.daily.temperature_2m_max[0])}°`;
+    const kn = c.wind_speed_10m;
+    document.getElementById("wxWind").textContent =
+      `${compass(c.wind_direction_10m)} ${Math.round(kn)} kn · ${beaufort(kn)} Bft`;
+    document.getElementById("wxGust").textContent = `${Math.round(c.wind_gusts_10m)} kn`;
+    document.getElementById("wxFeel").textContent = `${Math.round(c.apparent_temperature)}°`;
+    document.getElementById("wxHum").textContent = `${c.relative_humidity_2m}%`;
+    document.getElementById("wxRise").textContent = fmtHM(d.daily.sunrise[0]);
+    document.getElementById("wxSet").textContent = fmtHM(d.daily.sunset[0]);
+    document.getElementById("wxUpdated").textContent =
+      "updated " + new Date().toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+
+    // hourly strip: from current hour until midnight (min. 8 slots)
+    const H = d.hourly;
+    const nowSec = Date.now()/1000;
+    let i0 = H.time.findIndex(t => t > nowSec) - 1;
+    if (i0 < 0) i0 = 0;
+    const endOfDay = new Date(); endOfDay.setHours(23,59,0,0);
+    let iEnd = H.time.findIndex(t => t*1000 > endOfDay.getTime());
+    if (iEnd < 0) iEnd = H.time.length;
+    if (iEnd - i0 < 8) iEnd = Math.min(H.time.length, i0 + 8);
+    const wrap = document.getElementById("wxHours");
+    wrap.innerHTML = "";
+    for (let i = i0; i < iEnd; i++){
+      const [, ic] = wmo(H.weather_code[i]);
+      const el = document.createElement("div");
+      el.className = "hour" + (i === i0 ? " now" : "");
+      el.innerHTML =
+        `<div class="t">${i === i0 ? "now" : new Date(H.time[i]*1000).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"})}</div>` +
+        `<div class="i">${ic}</div>` +
+        `<div class="c">${Math.round(H.temperature_2m[i])}°</div>` +
+        `<div class="r">☂ ${H.precipitation_probability[i] ?? 0}%</div>` +
+        `<div class="w">${compass(H.wind_direction_10m[i])} ${Math.round(H.wind_speed_10m[i])}kn</div>`;
+      wrap.appendChild(el);
+    }
+  }catch(e){
+    document.getElementById("wxBody").innerHTML =
+      `<p class="err">Couldn't reach the forecast service (open-meteo.com). Check the connection and reload.</p>`;
+  }
+}
+loadWeather();
+setInterval(loadWeather, 15 * 60 * 1000);
+
+/* ============================================================
+   2. WIND MAP — Leaflet + animated arrow particles
+   3×3 forecast grid over the Kagerplassen, looping now → +3 h
+============================================================ */
+const map = L.map("map", {
+  center: [52.212, 4.545], zoom: 12,
+  zoomControl: false, dragging: false, scrollWheelZoom: false,
+  doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false,
+  attributionControl: true
+});
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
+  maxZoom: 19
+}).addTo(map);
+L.marker([52.2205, 4.5568], {
+  icon: L.divIcon({ className: "", html:
+    '<div style="font-family:IBM Plex Mono,monospace;font-size:10px;color:#eaf2ef;background:rgba(13,26,34,.75);border:1px solid #213a47;border-radius:6px;padding:2px 6px;transform:translate(-50%,-50%)">⌂ Kaag</div>',
+    iconSize: [0,0] })
+}).addTo(map);
+
+const GRID_LATS = [52.185, 52.212, 52.239];
+const GRID_LONS = [4.505, 4.545, 4.585];
+let windField = null;   // { hours: [ [ {u,v} x9 ] x5 ], baseIdx, times[] }
+let gridPx = [];        // projected pixel coords of the 9 grid points
+
+function projectGrid(){
+  gridPx = [];
+  for (const la of GRID_LATS)
+    for (const lo of GRID_LONS)
+      gridPx.push(map.latLngToContainerPoint([la, lo]));
+}
+
+async function loadWindField(){
+  const lats = [], lons = [];
+  for (const la of GRID_LATS) for (const lo of GRID_LONS){ lats.push(la); lons.push(lo); }
+  const url = "https://api.open-meteo.com/v1/forecast"
+    + `?latitude=${lats.join(",")}&longitude=${lons.join(",")}`
+    + "&hourly=wind_speed_10m,wind_direction_10m"
+    + "&wind_speed_unit=kn&timeformat=unixtime&timezone=Europe%2FAmsterdam&forecast_days=2";
+  try{
+    let d = await (await fetch(url)).json();
+    if (!Array.isArray(d)) d = [d];
+    const nowSec = Date.now()/1000;
+    let base = d[0].hourly.time.findIndex(t => t > nowSec) - 1;
+    if (base < 0) base = 0;
+    const HOURS = 5; // base .. base+4 so we can interpolate up to +3 h safely
+    const hours = [];
+    const times = [];
+    for (let h = 0; h < HOURS; h++){
+      const pts = d.map(loc => {
+        const sp = loc.hourly.wind_speed_10m[base + h] ?? 0;
+        const dir = loc.hourly.wind_direction_10m[base + h] ?? 0;
+        const to = (dir + 180) * Math.PI / 180;      // direction wind blows TOWARD
+        return { u: Math.sin(to) * sp, v: -Math.cos(to) * sp, sp };
+      });
+      // if only one location came back, copy it to all 9 cells
+      while (pts.length < 9) pts.push(pts[0]);
+      hours.push(pts);
+      times.push(d[0].hourly.time[base + h]);
+    }
+    windField = { hours, times };
+  }catch(e){
+    const el = document.getElementById("windErr");
+    el.style.display = "block";
+    el.textContent = "Wind data unavailable right now — the map keeps working, arrows resume when open-meteo.com responds.";
+  }
+}
+
+/* bilinear interpolation of (u,v) at pixel point p, at fractional hour hf */
+function sampleWind(p, hf){
+  if (!windField) return null;
+  const h0 = Math.min(3, Math.floor(hf)), fh = hf - h0;
+  const A = windField.hours[h0], B = windField.hours[h0 + 1];
+  // fractional grid coords from projected corner points
+  const x0 = gridPx[0].x, x1 = gridPx[2].x, y0 = gridPx[0].y, y1 = gridPx[6].y;
+  let gx = (p.x - x0) / (x1 - x0) * 2, gy = (p.y - y0) / (y1 - y0) * 2;
+  gx = Math.max(0, Math.min(2, gx)); gy = Math.max(0, Math.min(2, gy));
+  const ix = Math.min(1, Math.floor(gx)), iy = Math.min(1, Math.floor(gy));
+  const fx = gx - ix, fy = gy - iy;
+  const idx = (r,c) => r*3 + c;
+  function bilin(H, key){
+    const a = H[idx(iy,ix)][key],   b = H[idx(iy,ix+1)][key];
+    const c = H[idx(iy+1,ix)][key], e = H[idx(iy+1,ix+1)][key];
+    return (a*(1-fx)+b*fx)*(1-fy) + (c*(1-fx)+e*fx)*fy;
+  }
+  const u = bilin(A,"u")*(1-fh) + bilin(B,"u")*fh;
+  const v = bilin(A,"v")*(1-fh) + bilin(B,"v")*fh;
+  return { u, v, sp: Math.hypot(u,v) };
+}
+
+/* ---------- particles ---------- */
+const canvas = document.getElementById("windCanvas");
+const cx = canvas.getContext("2d");
+let particles = [];
+const N_PARTICLES = 90;
+let playing = !reduceMotion;
+let animT = 0;                    // forecast hour offset 0..3, loops
+const LOOP_SECONDS = 12;          // real seconds for the 3 h loop
+
+function sizeCanvas(){
+  const box = document.getElementById("map").getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = box.width * dpr; canvas.height = box.height * dpr;
+  canvas.style.width = box.width + "px"; canvas.style.height = box.height + "px";
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  projectGrid();
+  particles = Array.from({length:N_PARTICLES}, () => spawn(box));
+}
+function spawn(box){
+  return { x: Math.random()*box.width, y: Math.random()*box.height, life: 60 + Math.random()*180 };
+}
+function speedColor(kn){
+  if (kn < 8)  return "rgba(111,211,224,.9)";   // breeze cyan
+  if (kn < 16) return "rgba(242,201,76,.9)";    // fresh yellow
+  return "rgba(255,138,61,.95)";                // strong buoy orange
+}
+function drawArrow(p, u, v, kn){
+  const ang = Math.atan2(v, u);
+  const len = 7 + Math.min(10, kn * 0.5);
+  cx.save();
+  cx.translate(p.x, p.y);
+  cx.rotate(ang);
+  cx.strokeStyle = speedColor(kn);
+  cx.lineWidth = 1.5;
+  cx.lineCap = "round";
+  cx.beginPath();                       // shaft
+  cx.moveTo(-len, 0); cx.lineTo(len*0.55, 0);
+  cx.stroke();
+  cx.beginPath();                       // head
+  cx.moveTo(len*0.55 - 4, -3.4);
+  cx.lineTo(len*0.55, 0);
+  cx.lineTo(len*0.55 - 4, 3.4);
+  cx.stroke();
+  cx.restore();
+}
+let lastTs = null;
+function frame(ts){
+  requestAnimationFrame(frame);
+  if (lastTs === null) lastTs = ts;
+  const dt = Math.min(0.05, (ts - lastTs)/1000);
+  lastTs = ts;
+  if (!playing) return;
+
+  animT = (animT + dt * 3 / LOOP_SECONDS) % 3;
+  const box = { width: canvas.clientWidth, height: canvas.clientHeight };
+  cx.clearRect(0, 0, box.width, box.height);
+
+  for (const p of particles){
+    const w = sampleWind(p, animT);
+    if (w){
+      const pxPerSec = 3.2;                     // px/s per knot
+      p.x += w.u * pxPerSec * dt;
+      p.y += w.v * pxPerSec * dt;
+      drawArrow(p, w.u, w.v, w.sp);
+    }
+    p.life -= 1;
+    if (p.life <= 0 || p.x < -20 || p.x > box.width+20 || p.y < -20 || p.y > box.height+20){
+      Object.assign(p, spawn(box));
+    }
+  }
+  // time UI
+  const mins = Math.round(animT * 60);
+  const label = windField
+    ? (mins < 3 ? "Now" : `Now +${Math.floor(mins/60)}:${String(mins%60).padStart(2,"0")} h`)
+    : "Loading wind data…";
+  let clock = "";
+  if (windField){
+    const t = windField.times[0]*1000 + animT*3600*1000;
+    clock = " · " + new Date(t).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+  }
+  document.getElementById("timeLabel").textContent = label + clock;
+  document.getElementById("trackFill").style.width = (animT/3*100) + "%";
+}
+document.getElementById("playBtn").addEventListener("click", () => {
+  playing = !playing;
+  document.getElementById("playBtn").textContent = playing ? "⏸" : "▶";
+});
+if (reduceMotion) document.getElementById("playBtn").textContent = "▶";
+
+function refit(){ map.invalidateSize(); sizeCanvas(); }
+map.whenReady(() => { refit(); setTimeout(refit, 300); });
+window.addEventListener("resize", refit);
+loadWindField();
+setInterval(loadWindField, 20 * 60 * 1000);
+requestAnimationFrame(frame);
+
+/* ============================================================
+   3. PV PRODUCTION — dummy data, 5.0 kWp
+   Deterministic per day so the graph is stable across reloads.
+============================================================ */
+const PV_KWP = 5.0;
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function buildPvDay(){
+  const now = new Date();
+  const seed = now.getFullYear()*10000 + (now.getMonth()+1)*100 + now.getDate();
+  const rnd = mulberry32(seed);
+  // solar window (rough Dutch summer/winter blend by month)
+  const m = now.getMonth();                       // 0..11
+  const season = 0.55 + 0.45 * Math.cos((m - 5.5) / 6 * Math.PI); // ~1 in June, ~0.1 in Dec
+  const rise = 5.5 - season, set = 19.5 + season * 2;
+  const noon = (rise + set) / 2;
+  // smooth cloud factor: 3 random low-frequency waves
+  const w = [rnd(), rnd(), rnd()], ph = [rnd()*6.28, rnd()*6.28, rnd()*6.28];
+  const cloud = h =>
+    Math.max(.25, Math.min(1,
+      .78 + .22*Math.sin(h*.9 + ph[0])*w[0] - .18*Math.sin(h*.37 + ph[1])*w[1] + .12*Math.sin(h*1.7 + ph[2])*w[2]));
+  const pts = [];                                 // every 10 min
+  for (let h = 0; h <= 24; h += 1/6){
+    let p = 0;
+    if (h > rise && h < set){
+      const x = (h - noon) / ((set - rise) / 2);  // -1..1
+      p = PV_KWP * season * Math.max(0, Math.cos(x * Math.PI / 2)) ** 1.35 * cloud(h);
+    }
+    pts.push({ h, kw: Math.round(p * 100) / 100 });
+  }
+  return { pts, rise, set };
+}
+function drawPv(){
+  const cnv = document.getElementById("pvChart");
+  const g = cnv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const rect = cnv.getBoundingClientRect();
+  const W = rect.width || cnv.parentElement.clientWidth;
+  const H = rect.height || 200;
+  cnv.width = W*dpr; cnv.height = H*dpr;
+  g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,W,H);
+
+  const { pts } = buildPvDay();
+  const now = new Date();
+  const nowH = now.getHours() + now.getMinutes()/60;
+  const padL = 42, padR = 14, padT = 12, padB = 26;
+  const x0 = 5, x1 = 22;                          // plotted hours
+  const maxKw = Math.max(4, Math.ceil(Math.max(...pts.map(p=>p.kw))));
+  const X = h => padL + (h - x0) / (x1 - x0) * (W - padL - padR);
+  const Y = kw => padT + (1 - kw / maxKw) * (H - padT - padB);
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  // gridlines + axis labels
+  g.strokeStyle = css("--hairline"); g.fillStyle = css("--mist");
+  g.font = "10px 'IBM Plex Mono',monospace"; g.lineWidth = 1;
+  for (let kw = 0; kw <= maxKw; kw++){
+    g.globalAlpha = .55; g.beginPath(); g.moveTo(padL, Y(kw)); g.lineTo(W-padR, Y(kw)); g.stroke();
+    g.globalAlpha = 1; g.fillText(kw + " kW", 6, Y(kw)+3);
+  }
+  g.textAlign = "center";
+  for (let h = 6; h <= 22; h += 2) g.fillText(String(h).padStart(2,"0")+":00", X(h), H-8);
+  g.textAlign = "left";
+
+  const vis = pts.filter(p => p.h >= x0 && p.h <= x1);
+  const past = vis.filter(p => p.h <= nowH);
+  const future = vis.filter(p => p.h >= nowH);
+
+  // past area
+  if (past.length > 1){
+    const grad = g.createLinearGradient(0, padT, 0, H-padB);
+    grad.addColorStop(0, "rgba(242,201,76,.45)");
+    grad.addColorStop(1, "rgba(242,201,76,.03)");
+    g.beginPath(); g.moveTo(X(past[0].h), Y(0));
+    past.forEach(p => g.lineTo(X(p.h), Y(p.kw)));
+    g.lineTo(X(past[past.length-1].h), Y(0)); g.closePath();
+    g.fillStyle = grad; g.fill();
+    g.beginPath();
+    past.forEach((p,i) => i ? g.lineTo(X(p.h), Y(p.kw)) : g.moveTo(X(p.h), Y(p.kw)));
+    g.strokeStyle = css("--sun"); g.lineWidth = 2; g.stroke();
+  }
+  // future dashed line
+  if (future.length > 1){
+    g.beginPath();
+    future.forEach((p,i) => i ? g.lineTo(X(p.h), Y(p.kw)) : g.moveTo(X(p.h), Y(p.kw)));
+    g.setLineDash([4,5]); g.strokeStyle = "rgba(242,201,76,.5)"; g.lineWidth = 1.5;
+    g.stroke(); g.setLineDash([]);
+  }
+  // now marker
+  if (nowH >= x0 && nowH <= x1){
+    g.strokeStyle = css("--buoy"); g.lineWidth = 1;
+    g.setLineDash([2,4]);
+    g.beginPath(); g.moveTo(X(nowH), padT); g.lineTo(X(nowH), H-padB); g.stroke();
+    g.setLineDash([]);
+    const kNow = interpKw(pts, nowH);
+    g.fillStyle = css("--buoy");
+    g.beginPath(); g.arc(X(nowH), Y(kNow), 3.5, 0, 7); g.fill();
+  }
+
+  // stats
+  const kNow = interpKw(pts, nowH);
+  const stepH = 1/6;
+  const sofar = pts.filter(p => p.h <= nowH).reduce((s,p) => s + p.kw*stepH, 0);
+  const total = pts.reduce((s,p) => s + p.kw*stepH, 0);
+  const peak = Math.max(...pts.map(p => p.kw));
+  document.getElementById("pvNow").innerHTML   = kNow.toFixed(2) + " <small>kW</small>";
+  document.getElementById("pvToday").innerHTML = sofar.toFixed(1) + " <small>kWh</small>";
+  document.getElementById("pvExp").innerHTML   = total.toFixed(1) + " <small>kWh</small>";
+  document.getElementById("pvPeak").innerHTML  = peak.toFixed(2) + " <small>kW</small>";
+}
+function interpKw(pts, h){
+  for (let i = 1; i < pts.length; i++){
+    if (pts[i].h >= h){
+      const a = pts[i-1], b = pts[i];
+      const f = (h - a.h) / (b.h - a.h || 1);
+      return a.kw + (b.kw - a.kw) * f;
+    }
+  }
+  return 0;
+}
+drawPv();
+setTimeout(drawPv, 300);
+window.addEventListener("resize", drawPv);
+setInterval(drawPv, 5 * 60 * 1000);
+</script>
+</body>
+</html>
