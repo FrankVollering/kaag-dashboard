@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wind — today</title>
+
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    margin: 0;
+    padding: 24px;
+  }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px; }
+  #meta { color: #94a3b8; font-size: 0.85rem; margin-bottom: 16px; }
+  #chart { width: 100%; height: auto; display: block; }
+  .legend { display: flex; gap: 16px; font-size: 0.85rem; margin-top: 8px; }
+  .legend span::before {
+    content: "";
+    display: inline-block;
+    width: 12px; height: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .legend .speed::before { background: #38bdf8; }
+  .legend .gust::before { background: #f97316; }
+</style>
+</head>
+<body>
+<h1>Wind — today (local time)</h1>
+<div id="meta">loading…</div>
+<svg id="chart" viewBox="0 0 900 380" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="legend"><span class="speed">avg speed</span><span class="gust">gust</span></div>
+
+<script>
+const W = 900, H = 380;
+const M = { top: 16, right: 16, bottom: 36, left: 44 };
+const plotW = W - M.left - M.right;
+const plotH = H - M.top - M.bottom;
+
+fetch("data/wind.json")
+  .then(r => r.json())
+  .then(draw)
+  .catch(err => {
+    document.getElementById("meta").textContent = "Could not load data/wind.json — " + err;
+  });
+
+function draw(data) {
+  const pts = data.points;
+  const unit = data.unit;
+  const svg = document.getElementById("chart");
+
+  // X axis: fixed 24h window of today in LOCAL time (the API aligns days
+  // to the station's local timezone, so the first point can be 22:00 UTC yesterday)
+  const lastDate = pts.length ? new Date(pts[pts.length - 1].time) : new Date();
+  const dayStartDate = new Date(lastDate);
+  dayStartDate.setHours(0, 0, 0, 0);
+  const dayStart = dayStartDate.getTime();
+  const dayEnd = dayStart + 24 * 3600 * 1000;
+
+  const maxVal = Math.max(1, ...pts.map(p => Math.max(p.speed, p.gust ?? 0)));
+  const yMax = Math.ceil(maxVal * 1.1);
+
+  const x = t => M.left + (Date.parse(t) - dayStart) / (dayEnd - dayStart) * plotW;
+  const y = v => M.top + plotH - v / yMax * plotH;
+
+  let els = "";
+
+  // horizontal gridlines + y labels
+  const ySteps = 5;
+  for (let i = 0; i <= ySteps; i++) {
+    const v = yMax / ySteps * i;
+    const yy = y(v);
+    els += `<line x1="${M.left}" y1="${yy}" x2="${W - M.right}" y2="${yy}" stroke="#1e293b"/>`;
+    els += `<text x="${M.left - 8}" y="${yy + 4}" text-anchor="end" fill="#64748b" font-size="11">${v.toFixed(0)}</text>`;
+  }
+  // y-axis unit label
+  els += `<text x="${M.left - 8}" y="${M.top - 4}" text-anchor="end" fill="#64748b" font-size="11">${unit}</text>`;
+
+  // vertical gridlines + hour labels every 3h
+  for (let h = 0; h <= 24; h += 3) {
+    const xx = M.left + h / 24 * plotW;
+    els += `<line x1="${xx}" y1="${M.top}" x2="${xx}" y2="${M.top + plotH}" stroke="#1e293b"/>`;
+    els += `<text x="${xx}" y="${H - 12}" text-anchor="middle" fill="#64748b" font-size="11">${String(h).padStart(2, "0")}:00</text>`;
+  }
+
+  const line = (getter, color) => {
+    const d = pts
+      .filter(p => getter(p) != null)
+      .map((p, i) => `${i === 0 ? "M" : "L"}${x(p.time).toFixed(1)},${y(getter(p)).toFixed(1)}`)
+      .join("");
+    return d ? `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.8"/>` : "";
+  };
+
+  els += line(p => p.gust, "#f97316");
+  els += line(p => p.speed, "#38bdf8");
+
+  svg.innerHTML = els;
+
+  const last = pts[pts.length - 1];
+  const fmtTime = t => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  document.getElementById("meta").textContent = last
+    ? `${pts.length} points · latest ${fmtTime(last.time)}: ${last.speed} ${unit}, gust ${last.gust} ${unit}`
+    : "no data points";
+}
+</script>
+</body>
+</html>

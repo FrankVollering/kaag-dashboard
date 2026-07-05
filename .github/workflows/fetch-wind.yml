@@ -21,14 +21,14 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests tzdata
 
       - name: Fetch wind speed
         env:
           ECOWITT_APPLICATION_KEY: ${{ secrets.ECOWITT_APPLICATION_KEY }}
           ECOWITT_API_KEY: ${{ secrets.ECOWITT_API_KEY }}
           ECOWITT_MAC: ${{ secrets.ECOWITT_MAC }}
-        run: python fetch_wind.py
+        run: python fetch-wind.py
 
       - name: Commit updated data
         run: |

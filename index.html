@@ -52,8 +52,8 @@
   /* ---------- grid: 4 × 2, fills the rest of the screen ---------- */
   .grid{
     display:grid;
-    grid-template-columns:repeat(4,1fr);
-    grid-template-rows:repeat(2,1fr);
+    grid-template-columns:repeat(var(--cols,4),1fr);
+    grid-template-rows:repeat(var(--rows,2),1fr);
     gap:14px;
     flex:1;min-height:0;
   }
@@ -134,6 +134,8 @@
   .fig span{display:block;font-size:7px;letter-spacing:.02em;text-transform:uppercase;color:var(--mist);margin-bottom:1px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .fig b{font-weight:700;font-size:11px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap}
   .fig b small{font-size:8px;color:var(--mist);font-weight:500;margin-left:1px}
+  .fig em{display:block;font-style:normal;font-size:8px;color:var(--mist);font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:1px}
+  .rw-updated{flex:0 0 auto;margin-top:6px;font-size:8px;color:var(--mist);font-variant-numeric:tabular-nums}
   .fig.sun b{color:var(--sun)}
   .fig.feed b{color:var(--leaf)}
   .fig.fromgrid b{color:var(--breeze)}
@@ -174,7 +176,7 @@
 <div class="grid">
 
   <!-- WEATHER -->
-  <section class="card">
+  <section class="card" data-tile="weather">
     <span class="tag" id="wxUpdated" hidden>loading…</span>
     <div id="wxBody">
       <div class="wx-now">
@@ -187,7 +189,7 @@
   </section>
 
   <!-- PV -->
-  <section class="card">
+  <section class="card" data-tile="pv">
     <div class="stat-bar">
       <div class="fig sun"><span>Now</span><b id="pvNow">-- <small>kW</small></b></div>
       <div class="fig"><span>Peak</span><b id="pvPeak">-- <small>kW</small></b></div>
@@ -201,7 +203,7 @@
   </section>
 
   <!-- BUIENRADAR -->
-  <section class="card">
+  <section class="card" data-tile="buienradar">
     <div class="cam radar">
       <iframe id="radarFrame" src="https://gadgets.buienradar.nl/gadget/zoommap/?lat=52.2118&lng=4.5452&overname=2&zoom=3&naam=kaag&size=3&voor=1"
               width="550" height="512" loading="lazy" title="Buienradar rain radar — Kaag" scrolling="no"></iframe>
@@ -209,7 +211,7 @@
   </section>
 
   <!-- WIND MAP -->
-  <section class="card">
+  <section class="card" data-tile="windmap">
     <div class="mapwrap">
       <div id="map"></div>
       <canvas id="windCanvas"></canvas>
@@ -225,7 +227,7 @@
   </section>
 
   <!-- MARINE TRAFFIC -->
-  <section class="card">
+  <section class="card" data-tile="marinetraffic">
     <div class="cam">
       <iframe src="https://www.marinetraffic.com/en/ais/embed/zoom:13/centery:52.208343/centerx:4.552271/maptype:4/shownames:true/mmsi:0/shipid:0/fleet:/fleet_id:/vtypes:/showmenu:false/remember:false"
               loading="lazy" title="MarineTraffic AIS map — Kaag"></iframe>
@@ -233,7 +235,7 @@
   </section>
 
   <!-- CAM 1 -->
-  <section class="card">
+  <section class="card" data-tile="cam1">
     <div class="cam">
       <iframe src="https://g0.ipcamlive.com/player/player.php?alias=5f11a99d77f3c&autoplay=1&mutestream=1"
               allow="autoplay; fullscreen" allowfullscreen loading="lazy" title="Live camera 1 — Kaag ferry"></iframe>
@@ -241,7 +243,7 @@
   </section>
 
   <!-- CAM 2 -->
-  <section class="card">
+  <section class="card" data-tile="cam2">
     <div class="cam">
       <iframe src="https://g0.ipcamlive.com/player/player.php?alias=643553862c07a&autoplay=1&mutestream=1"
               allow="autoplay; fullscreen" allowfullscreen loading="lazy" title="Live camera 2 — Kaag"></iframe>
@@ -249,15 +251,15 @@
   </section>
 
   <!-- ROOF WIND METER -->
-  <section class="card">
+  <section class="card" data-tile="roofwind">
     <div class="stat-bar">
-      <div class="fig wind"><span>Now</span><b id="rwNow">-- <small>km/h</small></b></div>
-      <div class="fig"><span>Gust</span><b id="rwGust">-- <small>km/h</small></b></div>
-      <div class="fig"><span>Avg</span><b id="rwAvg">-- <small>km/h</small></b></div>
-      <div class="fig"><span>Max</span><b id="rwMax">-- <small>km/h</small></b></div>
-      <div class="fig"><span>Dir</span><b id="rwDir">--</b></div>
+      <div class="fig wind"><span>Now</span><b id="rwNow">-- <small>Bft</small></b><em id="rwNowKmh">--</em></div>
+      <div class="fig"><span>Gust</span><b id="rwGust">-- <small>Bft</small></b><em id="rwGustKmh">--</em></div>
+      <div class="fig"><span>Max</span><b id="rwMax">-- <small>Bft</small></b><em id="rwMaxKmh">--</em></div>
+      <div class="fig"><span>Dir</span><b id="rwDir">--</b><em id="rwDirDeg">--</em></div>
     </div>
     <canvas id="rwChart"></canvas>
+    <div class="rw-updated" id="rwUpdated">last run: --</div>
   </section>
 
 </div>
@@ -270,8 +272,29 @@
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="tiles.js"></script>
 <script>
 "use strict";
+
+/* ---------- tile switchboard (edit tiles.js to toggle & reorder) ----------
+   The listed order in tiles.js is the display order: tiles are re-appended
+   to the grid in that sequence, then hidden ones are switched off. */
+for (const [name, on] of Object.entries(typeof TILES !== "undefined" ? TILES : {})){
+  const el = document.querySelector(`[data-tile="${name}"]`);
+  if (!el) continue;
+  el.parentElement.appendChild(el);          // move to the end, in tiles.js order
+  if (on) continue;
+  el.querySelectorAll("iframe").forEach(f => f.remove());  // stop hidden tiles loading streams
+  el.style.display = "none";
+}
+// re-fit the grid to the number of visible tiles so they fill the screen
+{
+  const grid = document.querySelector(".grid");
+  const n = grid.querySelectorAll(".card:not([style*='none'])").length;
+  const cols = n <= 1 ? 1 : n === 2 ? 2 : n === 3 ? 3 : n === 4 ? 2 : n <= 6 ? 3 : 4;
+  grid.style.setProperty("--cols", cols);
+  grid.style.setProperty("--rows", Math.max(1, Math.ceil(n / cols)));
+}
 /* ============================================================
    De Kaag home dashboard
    - Weather + wind: Open-Meteo (free, CORS-enabled, no API key)
@@ -869,28 +892,48 @@ window.addEventListener("resize", drawPv);
 setInterval(drawPv, 5 * 60 * 1000);
 
 /* ============================================================
-   4. ROOF WIND METER — dummy anemometer data, km/h
-   Deterministic per day; sustained speed + gust bursts, readings
-   only run up to "now" (a real sensor has no future data).
+   4. ROOF WIND METER — Ecowitt station via data/wind.json
+   (written by the fetch-wind GitHub Action, m/s at 5-min steps;
+   converted to km/h here). Readings only run up to "now".
 ============================================================ */
-function buildRoofWindDay(){
-  const now = new Date();
-  const seed = now.getFullYear()*10000 + (now.getMonth()+1)*100 + now.getDate() + 9001;
-  const rnd = mulberry32(seed);
-  const base = 9 + rnd()*9;                     // 9-18 km/h daily base
-  const w = [rnd(), rnd(), rnd()], ph = [rnd()*6.28, rnd()*6.28, rnd()*6.28];
-  const dirBase = rnd()*360, dirDrift = (rnd()-0.5)*60;
-  const gustSeed = mulberry32(seed + 555);
-  const pts = [];
-  for (let h = 0; h <= 24; h += 1/6){
-    const speed = Math.max(1.5, base
-      + 5*Math.sin(h*0.7 + ph[0])*w[0]
-      + 3.5*Math.sin(h*1.9 + ph[1])*w[1]
-      + 2*Math.sin(h*3.3 + ph[2])*w[2]);
-    const gust = speed + Math.max(0, gustSeed()-0.55) * 22;
-    pts.push({ h, kmh: Math.round(speed*10)/10, gust: Math.round(gust*10)/10 });
+let roofWindData = null;   // { pts: [{h, kmh, gust, dir}], lastDir }
+// API timestamps are UTC; pin the chart to the station's timezone (CET/CEST),
+// independent of where the dashboard is viewed
+const RW_TZ = "Europe/Amsterdam";
+const rwDay = t => t.toLocaleDateString("en-CA", { timeZone: RW_TZ });
+const rwHour = t => {
+  const [hh, mm] = new Intl.DateTimeFormat("en-GB",
+    { timeZone: RW_TZ, hour: "2-digit", minute: "2-digit", hour12: false })
+    .format(t).split(":").map(Number);
+  return hh + mm/60;
+};
+async function loadRoofWind(){
+  try{
+    const d = await (await fetch("data/wind.json", { cache: "no-store" })).json();
+    const today = rwDay(new Date());
+    const pts = [];
+    for (const p of d.points){
+      const t = new Date(p.time);
+      if (rwDay(t) !== today) continue;      // keep only points from today, CET
+      const h = rwHour(t);
+      pts.push({
+        h,
+        kmh: Math.round(p.speed * 3.6 * 10) / 10,
+        gust: p.gust != null ? Math.round(p.gust * 3.6 * 10) / 10 : null,
+        dir: p.direction
+      });
+    }
+    const lastWithDir = [...pts].reverse().find(p => p.dir != null);
+    roofWindData = { pts, lastDir: lastWithDir ? lastWithDir.dir : null };
+    const lastPoint = d.points[d.points.length - 1];
+    document.getElementById("rwUpdated").textContent = lastPoint
+      ? "last run: " + new Date(lastPoint.time).toLocaleString("nl-NL",
+          { timeZone: RW_TZ, day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })
+      : "last run: --";
+    drawRoofWind();
+  }catch(e){
+    /* keep whatever was drawn last; retried by the interval below */
   }
-  return { pts, dirBase, dirDrift };
 }
 function drawRoofWind(){
   const cnv = document.getElementById("rwChart");
@@ -903,12 +946,14 @@ function drawRoofWind(){
   g.setTransform(dpr,0,0,dpr,0,0);
   g.clearRect(0,0,W,H);
 
-  const { pts, dirBase, dirDrift } = buildRoofWindDay();
-  const now = new Date();
-  const nowH = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
+  const pts = roofWindData ? roofWindData.pts : [];
+  const nowH = rwHour(new Date());
   const padL = 34, padR = 24, padT = 16, padB = 26;
   const x0 = 0, x1 = 24;
-  const maxKmh = Math.max(20, Math.ceil(Math.max(...pts.map(p=>p.gust)) / 5) * 5);
+  // round the top of the scale up to a multiple of 4 nice steps (5/10/20 km/h)
+  const rawMax = Math.max(20, Math.max(...pts.map(p=>Math.max(p.gust ?? 0, p.kmh)), 0));
+  const kmhStep = rawMax <= 20 ? 5 : rawMax <= 40 ? 10 : 20;
+  const maxKmh = Math.ceil(rawMax / (kmhStep * 4)) * kmhStep * 4;
   const X = h => padL + (h - x0) / (x1 - x0) * (W - padL - padR);
   const Y = kmh => padT + (1 - kmh / maxKmh) * (H - padT - padB);
   const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -922,35 +967,57 @@ function drawRoofWind(){
     g.fillRect(padL, Y(hi), W - padL - padR, Y(lo) - Y(hi));
   }
 
-  // gridlines + left axis (km/h) + right axis (Bft, dual scale)
-  g.strokeStyle = css("--hairline"); g.fillStyle = css("--mist");
-  g.font = "10px -apple-system,BlinkMacSystemFont,Inter,sans-serif"; g.lineWidth = 1;
-  for (let kmh = 0; kmh <= maxKmh; kmh += maxKmh/4){
-    g.globalAlpha = .55; g.beginPath(); g.moveTo(padL, Y(kmh)); g.lineTo(W-padR, Y(kmh)); g.stroke();
-    g.globalAlpha = 1; g.fillText(Math.round(kmh), 6, Y(kmh)+3);
+  // dotted separators at the Beaufort band boundaries
+  g.strokeStyle = css("--hairline"); g.lineWidth = 1;
+  g.setLineDash([2,3]);
+  for (let b = 1; b < BFT_KMH_BOUNDS.length; b++){
+    const v = BFT_KMH_BOUNDS[b];
+    if (v >= maxKmh) break;
+    g.beginPath(); g.moveTo(padL, Y(v)); g.lineTo(W-padR, Y(v)); g.stroke();
+  }
+  g.setLineDash([]);
+
+  // left axis: tick marks + labels every 5 km/h (no gridlines)
+  g.fillStyle = css("--mist");
+  g.font = "10px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
+  const plotH = H - padT - padB;
+  const labelEvery = plotH / (maxKmh/5) >= 12 ? 5 : 10;   // thin out labels when dense
+  for (let v = 0; v <= maxKmh; v += 5){
+    g.beginPath(); g.moveTo(padL-4, Y(v)); g.lineTo(padL, Y(v)); g.stroke();
+    if (v % labelEvery === 0 && v < maxKmh) g.fillText(v, 6, Y(v)+3);
   }
   g.textAlign = "center";
   for (let h = 0; h <= 24; h += 4) g.fillText(String(h).padStart(2,"0")+":00", X(h), H-8);
   g.textAlign = "left";
   g.font = "9px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
+  g.fillText("km/h", 6, padT - 6);
   g.fillText("Bft", W - padR - 2, padT - 6);
   let lastLabelY = Infinity;
+  g.textBaseline = "middle";
   for (let b = 1; b < BFT_KMH_BOUNDS.length; b++){
     const lo = BFT_KMH_BOUNDS[b];
     if (lo >= maxKmh) break;
-    const hi = Math.min(b+1 < BFT_KMH_BOUNDS.length ? BFT_KMH_BOUNDS[b+1] : maxKmh, maxKmh);
-    const y = (Y(lo) + Y(hi)) / 2;
+    // skip the topmost band when the scale cuts it off — a label in a sliver looks odd
+    const trueHi = b+1 < BFT_KMH_BOUNDS.length ? BFT_KMH_BOUNDS[b+1] : Infinity;
+    if (trueHi > maxKmh) break;
+    const y = (Y(lo) + Y(trueHi)) / 2;
     if (lastLabelY - y >= 12){
-      g.fillText(b, W - padR + 4, y + 3);
+      g.fillText(b, W - padR + 4, y);
       lastLabelY = y;
     }
   }
+  g.textBaseline = "alphabetic";
 
   const past = pts.filter(p => p.h <= nowH);
   if (past.length > 1){
     // gust line (behind, faint)
     g.beginPath();
-    past.forEach((p,i) => i ? g.lineTo(X(p.h), Y(p.gust)) : g.moveTo(X(p.h), Y(p.gust)));
+    let started = false;
+    past.forEach(p => {
+      if (p.gust == null) return;
+      started ? g.lineTo(X(p.h), Y(p.gust)) : g.moveTo(X(p.h), Y(p.gust));
+      started = true;
+    });
     g.strokeStyle = "rgba(0,113,227,.30)"; g.lineWidth = 1; g.stroke();
 
     // sustained-speed area + line
@@ -973,20 +1040,27 @@ function drawRoofWind(){
 
   // stats
   const kmhNow = past.length ? past[past.length-1].kmh : 0;
-  const gustNow = past.length ? past[past.length-1].gust : 0;
-  const avg = past.length ? past.reduce((s,p)=>s+p.kmh,0) / past.length : 0;
-  const maxGust = past.length ? Math.max(...past.map(p=>p.gust)) : 0;
-  const dirNow = (dirBase + Math.sin(nowH/24 * Math.PI * 2) * dirDrift + 360) % 360;
-  document.getElementById("rwNow").innerHTML  = kmhNow.toFixed(1) + " <small>km/h</small>";
-  document.getElementById("rwGust").innerHTML = gustNow.toFixed(1) + " <small>km/h</small>";
-  document.getElementById("rwAvg").innerHTML  = avg.toFixed(1) + " <small>km/h</small>";
-  document.getElementById("rwMax").innerHTML  = maxGust.toFixed(1) + " <small>km/h</small>";
-  document.getElementById("rwDir").textContent = compass(dirNow);
+  const gustNow = past.length ? (past[past.length-1].gust ?? 0) : 0;
+  const maxGust = past.length ? Math.max(...past.map(p=>p.gust ?? 0)) : 0;
+  const toBft = kmh => {
+    let b = 0;
+    for (let i = 0; i < BFT_KMH_BOUNDS.length; i++) if (kmh >= BFT_KMH_BOUNDS[i]) b = i;
+    return b;
+  };
+  const setFig = (id, kmh) => {
+    document.getElementById(id).innerHTML = toBft(kmh) + " <small>Bft</small>";
+    document.getElementById(id + "Kmh").textContent = kmh.toFixed(1) + " km/h";
+  };
+  setFig("rwNow", kmhNow);
+  setFig("rwGust", gustNow);
+  setFig("rwMax", maxGust);
+  const lastDir = roofWindData ? roofWindData.lastDir : null;
+  document.getElementById("rwDir").textContent = lastDir != null ? compass(lastDir) : "--";
+  document.getElementById("rwDirDeg").textContent = lastDir != null ? Math.round(lastDir) + "°" : "--";
 }
-drawRoofWind();
-setTimeout(drawRoofWind, 300);
+loadRoofWind();
+setInterval(loadRoofWind, 5 * 60 * 1000);
 window.addEventListener("resize", drawRoofWind);
-setInterval(drawRoofWind, 4000);
 </script>
 </body>
 </html>
