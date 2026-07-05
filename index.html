@@ -406,7 +406,8 @@ function drawWeatherChart(){
   const x0 = 0, x1 = 24;
   const padL = 28, padR = 8, padT = 34, padB = 20;
   const bftY = 10, iconY = 24;
-  const minT = Math.floor(Math.min(...pts.map(p=>p.temp)) - 1);
+  // axis floor: 0 when all temps are positive, otherwise the coldest reading
+  const minT = Math.min(0, Math.floor(Math.min(...pts.map(p=>p.temp)) - 1));
   const maxT = Math.ceil(Math.max(...pts.map(p=>p.temp)) + 1);
   const X = h => padL + (h - x0) / (x1 - x0) * (W - padL - padR);
   const Y = t => padT + (1 - (t - minT) / (maxT - minT)) * (H - padT - padB);
@@ -437,7 +438,7 @@ function drawWeatherChart(){
     g.globalAlpha = 1; g.fillText(Math.round(t)+"°", 2, Y(t)+3);
   }
   g.textAlign = "center";
-  for (let h = 0; h <= 24; h += 4) g.fillText(String(h).padStart(2,"0")+":00", X(h), H-6);
+  for (let h = 0; h <= 24; h += 4) g.fillText(String(h).padStart(2,"0"), X(h), H-6);
   g.textAlign = "left";
 
   // temperature area + line: solid past, dashed future
@@ -465,18 +466,47 @@ function drawWeatherChart(){
     g.stroke(); g.setLineDash([]);
   }
 
-  // weather icon row, one icon per 2h, above the temperature graph
+  // weather icon row, one icon per 2h, above the temperature graph.
+  // At night, sun icons become the moon in its current phase — drawn on the
+  // canvas so only the illuminated part is visible (no dark disc).
+  const SYNODIC = 29.53058867;
+  const newMoonRef = Date.UTC(2000, 0, 6, 18, 14) / 86400000;   // known new moon
+  const phase = ((Date.now()/86400000 - newMoonRef) % SYNODIC + SYNODIC) % SYNODIC / SYNODIC;
+  const SUN_CODES = [0, 1, 2];   // clear / mostly clear / partly cloudy
+  function drawMoonPhase(x, y, r, p){
+    const k = Math.cos(2 * Math.PI * p);      // terminator width: +1 new .. -1 full
+    const waxing = p < 0.5;                   // waxing = lit on the right (NL view)
+    g.save();
+    g.translate(x, y);
+    g.beginPath();
+    g.moveTo(0, -r);
+    g.arc(0, 0, r, -Math.PI/2, Math.PI/2, !waxing);           // lit-side outer edge
+    g.ellipse(0, 0, Math.abs(k) * r, r, 0, Math.PI/2, -Math.PI/2,
+              waxing ? k > 0 : k < 0);                         // terminator
+    g.closePath();
+    g.fillStyle = "#e3b94f";
+    g.fill();
+    g.restore();
+  }
   g.font = "10px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   g.textAlign = "center";
-  pts.forEach((p,i) => { if (i % 2 !== 0) return; const [, ic] = wmo(p.code); g.fillText(ic, X(p.h), iconY); });
+  pts.forEach((p,i) => {
+    if (i % 2 !== 0) return;
+    const night = p.h < sunriseH || p.h > sunsetH;
+    if (night && SUN_CODES.includes(p.code)){
+      drawMoonPhase(X(p.h), iconY - 3.5, 4.5, phase);
+    } else {
+      const [, ic] = wmo(p.code);
+      g.fillText(ic, X(p.h), iconY);
+    }
+  });
 
   // Bft wind row, one number per 2h, above the weather icons
   g.font = "9px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
+  g.fillStyle = css("--mist");
   pts.forEach((p,i) => {
     if (i % 2 !== 0) return;
-    const bft = beaufort(p.wind);
-    g.fillStyle = bftColor(bft);
-    g.fillText(bft, X(p.h), bftY + 3);
+    g.fillText(beaufort(p.wind), X(p.h), bftY + 3);
   });
   g.textAlign = "left";
   g.fillStyle = css("--mist"); g.font = "8px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
@@ -790,7 +820,7 @@ function drawPv(){
     g.globalAlpha = 1; g.fillText(kw + " kW", 6, Y(kw)+3);
   }
   g.textAlign = "center";
-  for (let h = 6; h <= 22; h += 2) g.fillText(String(h).padStart(2,"0")+":00", X(h), H-8);
+  for (let h = 6; h <= 22; h += 2) g.fillText(String(h).padStart(2,"0"), X(h), H-8);
   g.textAlign = "left";
 
   // indices within the plotted window, production & consumption aligned by hour
@@ -987,7 +1017,7 @@ function drawRoofWind(){
     if (v % labelEvery === 0 && v < maxKmh) g.fillText(v, 6, Y(v)+3);
   }
   g.textAlign = "center";
-  for (let h = 0; h <= 24; h += 4) g.fillText(String(h).padStart(2,"0")+":00", X(h), H-8);
+  for (let h = 0; h <= 24; h += 4) g.fillText(String(h).padStart(2,"0"), X(h), H-8);
   g.textAlign = "left";
   g.font = "9px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   g.fillText("km/h", 6, padT - 6);
