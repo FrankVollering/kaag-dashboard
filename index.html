@@ -136,6 +136,11 @@
   .fig b small{font-size:8px;color:var(--mist);font-weight:500;margin-left:1px}
   .fig em{display:block;font-style:normal;font-size:8px;color:var(--mist);font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:1px}
   .rw-updated{flex:0 0 auto;margin-top:6px;font-size:8px;color:var(--mist);font-variant-numeric:tabular-nums}
+  /* roof wind tile: larger indicator figures (only 4 figs, so there's room) */
+  [data-tile="roofwind"] .fig span{font-size:10px}
+  [data-tile="roofwind"] .fig b{font-size:20px}
+  [data-tile="roofwind"] .fig b small{font-size:11px}
+  [data-tile="roofwind"] .fig em{font-size:11px}
   .fig.sun b{color:var(--sun)}
   .fig.feed b{color:var(--leaf)}
   .fig.fromgrid b{color:var(--breeze)}
@@ -440,6 +445,10 @@ function drawWeatherChart(){
   g.textAlign = "center";
   for (let h = 0; h <= 24; h += 4) g.fillText(String(h).padStart(2,"0"), X(h), H-6);
   g.textAlign = "left";
+  // hourly dots along the bottom axis
+  g.fillStyle = "rgba(0,0,0,.35)";
+  for (let h = 0; h <= 24; h++) g.fillRect(Math.round(X(h)), H-padB+2, 1, 1);
+  g.fillStyle = css("--mist");
 
   // temperature area + line: solid past, dashed future
   const past = pts.filter(p => p.h <= nowH);
@@ -822,6 +831,10 @@ function drawPv(){
   g.textAlign = "center";
   for (let h = 6; h <= 22; h += 2) g.fillText(String(h).padStart(2,"0"), X(h), H-8);
   g.textAlign = "left";
+  // hourly dots along the bottom axis
+  g.fillStyle = "rgba(0,0,0,.35)";
+  for (let h = x0; h <= x1; h++) g.fillRect(Math.round(X(h)), H-padB+2, 1, 1);
+  g.fillStyle = css("--mist");
 
   // indices within the plotted window, production & consumption aligned by hour
   const idx = pts.map((p,i)=>i).filter(i => pts[i].h >= x0 && pts[i].h <= x1);
@@ -998,7 +1011,7 @@ function drawRoofWind(){
   }
 
   // dotted separators at the Beaufort band boundaries
-  g.strokeStyle = css("--hairline"); g.lineWidth = 1;
+  g.strokeStyle = "rgba(0,0,0,.25)"; g.lineWidth = 1;
   g.setLineDash([2,3]);
   for (let b = 1; b < BFT_KMH_BOUNDS.length; b++){
     const v = BFT_KMH_BOUNDS[b];
@@ -1007,18 +1020,19 @@ function drawRoofWind(){
   }
   g.setLineDash([]);
 
-  // left axis: tick marks + labels every 5 km/h (no gridlines)
+  // left axis: labels every 5 km/h (no gridlines, no tick marks)
   g.fillStyle = css("--mist");
   g.font = "10px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   const plotH = H - padT - padB;
   const labelEvery = plotH / (maxKmh/5) >= 12 ? 5 : 10;   // thin out labels when dense
-  for (let v = 0; v <= maxKmh; v += 5){
-    g.beginPath(); g.moveTo(padL-4, Y(v)); g.lineTo(padL, Y(v)); g.stroke();
-    if (v % labelEvery === 0 && v < maxKmh) g.fillText(v, 6, Y(v)+3);
-  }
+  for (let v = 0; v < maxKmh; v += labelEvery) g.fillText(v, 6, Y(v)+3);
   g.textAlign = "center";
   for (let h = 0; h <= 24; h += 4) g.fillText(String(h).padStart(2,"0"), X(h), H-8);
   g.textAlign = "left";
+  // hourly dots along the bottom axis
+  g.fillStyle = "rgba(0,0,0,.35)";
+  for (let h = 0; h <= 24; h++) g.fillRect(Math.round(X(h)), H-padB+2, 1, 1);
+  g.fillStyle = css("--mist");
   g.font = "9px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   g.fillText("km/h", 6, padT - 6);
   g.fillText("Bft", W - padR - 2, padT - 6);
