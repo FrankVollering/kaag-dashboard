@@ -2,7 +2,7 @@ name: Fetch Wind Speed
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch: {}  # allows manual trigger from the Actions tab
 
 permissions:
