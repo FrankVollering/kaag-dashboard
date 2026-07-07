@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import requests
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -17,6 +18,30 @@ API_KEY = os.environ["ECOWITT_API_KEY"]
 MAC = os.environ["ECOWITT_MAC"]
 
 DATA_FILE = "data/wind.json"
+MAX_RETRIES = 4
+INITIAL_BACKOFF = 2  # seconds, doubles each retry
+
+def _get_with_retries(url, params):
+    last_error = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            resp = requests.get(url, params=params, timeout=15)
+            if resp.status_code == 429:
+                wait = int(resp.headers.get("Retry-After", INITIAL_BACKOFF * 2 ** (attempt - 1)))
+                print(f"Rate limited (429), attempt {attempt}/{MAX_RETRIES}, waiting {wait}s")
+                last_error = RuntimeError("Ecowitt API rate limited (429)")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            return resp.json()
+        except (requests.exceptions.RequestException, ValueError) as e:
+            last_error = e
+            if attempt < MAX_RETRIES:
+                wait = INITIAL_BACKOFF * 2 ** (attempt - 1)
+                print(f"Request failed ({e}), attempt {attempt}/{MAX_RETRIES}, retrying in {wait}s")
+                time.sleep(wait)
+
+    raise RuntimeError(f"Ecowitt API request failed after {MAX_RETRIES} attempts: {last_error}") from last_error
 
 def fetch_wind_history():
     # the API interprets start/end date strings in the station's local time,
@@ -36,17 +61,18 @@ def fetch_wind_history():
         "cycle_type": "5min",
         "wind_speed_unitid": 6,  # API currently returns m/s regardless
     }
-    resp = requests.get(url, params=params, timeout=15)
-    resp.raise_for_status()
-    data = resp.json()
+    data = _get_with_retries(url, params)
 
     if data.get("code") != 0:
         raise RuntimeError(f"Ecowitt API error: {data.get('msg')}")
 
-    wind = data["data"]["wind"]
-    speeds = wind["wind_speed"]["list"]
-    gusts = wind["wind_gust"]["list"]
-    directions = wind["wind_direction"]["list"]
+    try:
+        wind = data["data"]["wind"]
+        speeds = wind["wind_speed"]["list"]
+        gusts = wind["wind_gust"]["list"]
+        directions = wind["wind_direction"]["list"]
+    except (KeyError, TypeError) as e:
+        raise RuntimeError(f"Unexpected Ecowitt response shape: missing {e}") from e
 
     points = []
     for ts in sorted(speeds, key=int):

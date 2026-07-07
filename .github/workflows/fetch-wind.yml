@@ -2,11 +2,15 @@ name: Fetch Wind Speed
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '3,13,23,33,43,53 * * * *'  # offset from :00/:10/... to dodge GitHub's cron congestion
   workflow_dispatch: {}  # allows manual trigger from the Actions tab
 
 permissions:
   contents: write
+
+concurrency:
+  group: fetch-wind
+  cancel-in-progress: false
 
 jobs:
   fetch:
@@ -35,5 +39,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/wind.json
-          git diff --staged --quiet || git commit -m "Update wind speed data"
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Update wind speed data"
+          git pull --rebase origin main
           git push
