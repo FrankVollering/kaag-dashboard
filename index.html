@@ -378,6 +378,7 @@ async function loadWeather(){
 
     wxData = d;
     drawWeatherChart();
+    drawRoofWind();   // refresh so the forecast dotted line picks up the new data
   }catch(e){
     document.getElementById("wxBody").innerHTML =
       `<p class="err">Couldn't reach the forecast service (open-meteo.com). Check the connection and reload.</p>`;
@@ -978,6 +979,23 @@ async function loadRoofWind(){
     /* keep whatever was drawn last; retried by the interval below */
   }
 }
+// Wind-speed forecast (knots) from the weather tile's hourly data, converted
+// to km/h — the same series behind the Bft row on the temperature graph.
+function getWindForecastKmh(){
+  if (!wxData) return [];
+  const hourly = wxData.hourly;
+  const today = rwDay(new Date());
+  const pts = [];
+  for (let i = 0; i < hourly.time.length; i++){
+    // open-meteo's unixtime+timezone combo returns timestamps pre-shifted so
+    // that UTC getters read back the station's local wall-clock time.
+    const d = new Date(hourly.time[i]*1000);
+    const dayStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
+    if (dayStr !== today) continue;
+    pts.push({ h: d.getUTCHours() + d.getUTCMinutes()/60, kmh: hourly.wind_speed_10m[i] * 1.852 });
+  }
+  return pts;
+}
 function drawRoofWind(){
   const cnv = document.getElementById("rwChart");
   const g = cnv.getContext("2d");
@@ -990,11 +1008,12 @@ function drawRoofWind(){
   g.clearRect(0,0,W,H);
 
   const pts = roofWindData ? roofWindData.pts : [];
+  const forecast = getWindForecastKmh();
   const nowH = rwHour(new Date());
   const padL = 34, padR = 24, padT = 16, padB = 26;
   const x0 = 0, x1 = 24;
   // round the top of the scale up to a multiple of 4 nice steps (5/10/20 km/h)
-  const rawMax = Math.max(20, Math.max(...pts.map(p=>Math.max(p.gust ?? 0, p.kmh)), 0));
+  const rawMax = Math.max(20, Math.max(...pts.map(p=>Math.max(p.gust ?? 0, p.kmh)), ...forecast.map(p=>p.kmh), 0));
   const kmhStep = rawMax <= 20 ? 5 : rawMax <= 40 ? 10 : 20;
   const maxKmh = Math.ceil(rawMax / (kmhStep * 4)) * kmhStep * 4;
   const X = h => padL + (h - x0) / (x1 - x0) * (W - padL - padR);
@@ -1051,6 +1070,14 @@ function drawRoofWind(){
     }
   }
   g.textBaseline = "alphabetic";
+
+  // forecast wind speed (Open-Meteo hourly, kn→km/h), dotted line
+  if (forecast.length > 1){
+    g.beginPath();
+    forecast.forEach((p,i) => i ? g.lineTo(X(p.h), Y(p.kmh)) : g.moveTo(X(p.h), Y(p.kmh)));
+    g.setLineDash([2,3]); g.strokeStyle = css("--breeze"); g.lineWidth = 1.5;
+    g.stroke(); g.setLineDash([]);
+  }
 
   const past = pts.filter(p => p.h <= nowH);
   if (past.length > 1){
