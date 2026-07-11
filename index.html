@@ -58,7 +58,7 @@
 
   /* ---------- next-steps modal ---------- */
   .modal-backdrop{
-    position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(2px);
+    position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.35);backdrop-filter:blur(2px);
     display:flex;align-items:center;justify-content:center;z-index:1000;
   }
   .modal-backdrop[hidden]{display:none}
@@ -133,7 +133,7 @@
   /* ---------- wind map ---------- */
   .mapwrap{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--hairline);flex:1;min-height:120px}
   #map{height:100%;width:100%;background:#eef1f2}
-  #windCanvas{position:absolute;inset:0;pointer-events:none;z-index:500}
+  #windCanvas{position:absolute;top:0;right:0;bottom:0;left:0;pointer-events:none;z-index:500}
   .timebar{
     display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;flex:0 0 auto;
     font-size:11px;color:var(--mist);
@@ -159,7 +159,7 @@
 
   /* ---------- cams ---------- */
   .cam{position:relative;width:100%;flex:1;min-height:120px;border-radius:16px;overflow:hidden;border:1px solid var(--hairline);background:#000}
-  .cam iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .cam iframe{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;border:0}
   .cam.radar{background:#eef1f2}
   .cam.radar iframe{width:550px;height:512px;top:0;left:0;transform-origin:top left}
 
@@ -364,6 +364,9 @@ for (const [name, on] of Object.entries(typeof TILES !== "undefined" ? TILES : {
   grid.style.setProperty("--cols", cols);
   grid.style.setProperty("--rows", Math.max(1, Math.ceil(n / cols)));
 }
+// gates each tile's own script below — a disabled tile shouldn't keep
+// fetching data or animating in the background just because it's hidden
+const tileEnabled = name => (typeof TILES !== "undefined" ? !!TILES[name] : true);
 /* ============================================================
    De Kaag home dashboard
    - Weather + wind: Open-Meteo (free, CORS-enabled, no API key)
@@ -590,222 +593,233 @@ function drawWeatherChart(){
   g.fillStyle = css("--mist"); g.font = "8px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   g.fillText("Bft", 2, bftY + 3);
 }
-loadWeather();
-setInterval(loadWeather, 15 * 60 * 1000);
-window.addEventListener("resize", drawWeatherChart);
-setInterval(drawWeatherChart, 5 * 60 * 1000);
+if (tileEnabled("weather")){
+  loadWeather();
+  setInterval(loadWeather, 15 * 60 * 1000);
+  window.addEventListener("resize", drawWeatherChart);
+  setInterval(drawWeatherChart, 5 * 60 * 1000);
+}
+
+/* ============================================================
+   1b. BUIENRADAR — fixed-size gadget scaling
+   Buienradar's gadget renders at a fixed 550x512 px size; scale it
+   visually to fit its card so the whole map shows with no internal
+   scrollbars.
+============================================================ */
+if (tileEnabled("buienradar")){
+  const radarWrap = document.querySelector(".cam.radar");
+  const radarFrame = document.getElementById("radarFrame");
+  const fitRadar = () => {
+    if (!radarWrap || !radarFrame) return;
+    const nativeW = 550, nativeH = 512;
+    const scale = Math.min(radarWrap.clientWidth / nativeW, radarWrap.clientHeight / nativeH);
+    const x = (radarWrap.clientWidth - nativeW * scale) / 2;
+    const y = (radarWrap.clientHeight - nativeH * scale) / 2;
+    radarFrame.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+  };
+  if (radarWrap) new ResizeObserver(fitRadar).observe(radarWrap);
+  fitRadar();
+}
 
 /* ============================================================
    2. WIND MAP — Leaflet + animated arrow particles
    3×3 forecast grid over the Kagerplassen, looping now → +3 h
 ============================================================ */
-const map = L.map("map", {
-  center: [52.212, 4.545], zoom: 12,
-  zoomControl: false, dragging: false, scrollWheelZoom: false,
-  doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false,
-  attributionControl: true
-});
-L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
-  maxZoom: 19
-}).addTo(map);
-const GRID_LATS = [52.185, 52.212, 52.239];
-const GRID_LONS = [4.505, 4.545, 4.585];
-let windField = null;   // { hours: [ [ {u,v} x9 ] x5 ], baseIdx, times[] }
-let gridPx = [];        // projected pixel coords of the 9 grid points
+if (tileEnabled("windmap")){
+  const map = L.map("map", {
+    center: [52.212, 4.545], zoom: 12,
+    zoomControl: false, dragging: false, scrollWheelZoom: false,
+    doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false,
+    attributionControl: true
+  });
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom: 19
+  }).addTo(map);
+  const GRID_LATS = [52.185, 52.212, 52.239];
+  const GRID_LONS = [4.505, 4.545, 4.585];
+  let windField = null;   // { hours: [ [ {u,v} x9 ] x5 ], baseIdx, times[] }
+  let gridPx = [];        // projected pixel coords of the 9 grid points
 
-function projectGrid(){
-  gridPx = [];
-  for (const la of GRID_LATS)
-    for (const lo of GRID_LONS)
-      gridPx.push(map.latLngToContainerPoint([la, lo]));
-}
+  function projectGrid(){
+    gridPx = [];
+    for (const la of GRID_LATS)
+      for (const lo of GRID_LONS)
+        gridPx.push(map.latLngToContainerPoint([la, lo]));
+  }
 
-async function loadWindField(){
-  const lats = [], lons = [];
-  for (const la of GRID_LATS) for (const lo of GRID_LONS){ lats.push(la); lons.push(lo); }
-  const url = "https://api.open-meteo.com/v1/forecast"
-    + `?latitude=${lats.join(",")}&longitude=${lons.join(",")}`
-    + "&hourly=wind_speed_10m,wind_direction_10m"
-    + "&wind_speed_unit=kn&timeformat=unixtime&timezone=Europe%2FAmsterdam&forecast_days=2";
-  try{
-    let d = await (await fetch(url)).json();
-    if (!Array.isArray(d)) d = [d];
-    const nowSec = Date.now()/1000;
-    let base = d[0].hourly.time.findIndex(t => t > nowSec) - 1;
-    if (base < 0) base = 0;
-    const HOURS = 5; // base .. base+4 so we can interpolate up to +3 h safely
-    const hours = [];
-    const times = [];
-    for (let h = 0; h < HOURS; h++){
-      const pts = d.map(loc => {
-        const sp = nz(loc.hourly.wind_speed_10m[base + h]);
-        const dir = nz(loc.hourly.wind_direction_10m[base + h]);
-        const to = (dir + 180) * Math.PI / 180;      // direction wind blows TOWARD
-        return { u: Math.sin(to) * sp, v: -Math.cos(to) * sp, sp };
-      });
-      // if only one location came back, copy it to all 9 cells
-      while (pts.length < 9) pts.push(pts[0]);
-      hours.push(pts);
-      times.push(d[0].hourly.time[base + h]);
+  async function loadWindField(){
+    const lats = [], lons = [];
+    for (const la of GRID_LATS) for (const lo of GRID_LONS){ lats.push(la); lons.push(lo); }
+    const url = "https://api.open-meteo.com/v1/forecast"
+      + `?latitude=${lats.join(",")}&longitude=${lons.join(",")}`
+      + "&hourly=wind_speed_10m,wind_direction_10m"
+      + "&wind_speed_unit=kn&timeformat=unixtime&timezone=Europe%2FAmsterdam&forecast_days=2";
+    try{
+      let d = await (await fetch(url)).json();
+      if (!Array.isArray(d)) d = [d];
+      const nowSec = Date.now()/1000;
+      let base = d[0].hourly.time.findIndex(t => t > nowSec) - 1;
+      if (base < 0) base = 0;
+      const HOURS = 5; // base .. base+4 so we can interpolate up to +3 h safely
+      const hours = [];
+      const times = [];
+      for (let h = 0; h < HOURS; h++){
+        const pts = d.map(loc => {
+          const sp = nz(loc.hourly.wind_speed_10m[base + h]);
+          const dir = nz(loc.hourly.wind_direction_10m[base + h]);
+          const to = (dir + 180) * Math.PI / 180;      // direction wind blows TOWARD
+          return { u: Math.sin(to) * sp, v: -Math.cos(to) * sp, sp };
+        });
+        // if only one location came back, copy it to all 9 cells
+        while (pts.length < 9) pts.push(pts[0]);
+        hours.push(pts);
+        times.push(d[0].hourly.time[base + h]);
+      }
+      windField = { hours, times };
+    }catch(e){
+      const el = document.getElementById("windErr");
+      el.style.display = "block";
+      el.textContent = "Wind data unavailable right now — the map keeps working, arrows resume when open-meteo.com responds.";
     }
-    windField = { hours, times };
-  }catch(e){
-    const el = document.getElementById("windErr");
-    el.style.display = "block";
-    el.textContent = "Wind data unavailable right now — the map keeps working, arrows resume when open-meteo.com responds.";
   }
-}
 
-/* bilinear interpolation of (u,v) at pixel point p, at fractional hour hf */
-function sampleWind(p, hf){
-  if (!windField) return null;
-  const h0 = Math.min(3, Math.floor(hf)), fh = hf - h0;
-  const A = windField.hours[h0], B = windField.hours[h0 + 1];
-  // fractional grid coords from projected corner points
-  const x0 = gridPx[0].x, x1 = gridPx[2].x, y0 = gridPx[0].y, y1 = gridPx[6].y;
-  let gx = (p.x - x0) / (x1 - x0) * 2, gy = (p.y - y0) / (y1 - y0) * 2;
-  gx = Math.max(0, Math.min(2, gx)); gy = Math.max(0, Math.min(2, gy));
-  const ix = Math.min(1, Math.floor(gx)), iy = Math.min(1, Math.floor(gy));
-  const fx = gx - ix, fy = gy - iy;
-  const idx = (r,c) => r*3 + c;
-  function bilin(H, key){
-    const a = H[idx(iy,ix)][key],   b = H[idx(iy,ix+1)][key];
-    const c = H[idx(iy+1,ix)][key], e = H[idx(iy+1,ix+1)][key];
-    return (a*(1-fx)+b*fx)*(1-fy) + (c*(1-fx)+e*fx)*fy;
+  /* bilinear interpolation of (u,v) at pixel point p, at fractional hour hf */
+  function sampleWind(p, hf){
+    if (!windField) return null;
+    const h0 = Math.min(3, Math.floor(hf)), fh = hf - h0;
+    const A = windField.hours[h0], B = windField.hours[h0 + 1];
+    // fractional grid coords from projected corner points
+    const x0 = gridPx[0].x, x1 = gridPx[2].x, y0 = gridPx[0].y, y1 = gridPx[6].y;
+    let gx = (p.x - x0) / (x1 - x0) * 2, gy = (p.y - y0) / (y1 - y0) * 2;
+    gx = Math.max(0, Math.min(2, gx)); gy = Math.max(0, Math.min(2, gy));
+    const ix = Math.min(1, Math.floor(gx)), iy = Math.min(1, Math.floor(gy));
+    const fx = gx - ix, fy = gy - iy;
+    const idx = (r,c) => r*3 + c;
+    function bilin(H, key){
+      const a = H[idx(iy,ix)][key],   b = H[idx(iy,ix+1)][key];
+      const c = H[idx(iy+1,ix)][key], e = H[idx(iy+1,ix+1)][key];
+      return (a*(1-fx)+b*fx)*(1-fy) + (c*(1-fx)+e*fx)*fy;
+    }
+    const u = bilin(A,"u")*(1-fh) + bilin(B,"u")*fh;
+    const v = bilin(A,"v")*(1-fh) + bilin(B,"v")*fh;
+    return { u, v, sp: Math.hypot(u,v) };
   }
-  const u = bilin(A,"u")*(1-fh) + bilin(B,"u")*fh;
-  const v = bilin(A,"v")*(1-fh) + bilin(B,"v")*fh;
-  return { u, v, sp: Math.hypot(u,v) };
-}
 
-/* ---------- particles ---------- */
-const canvas = document.getElementById("windCanvas");
-const cx = canvas.getContext("2d");
-let particles = [];
-const N_PARTICLES = 90;
-let playing = !reduceMotion;
-let animT = 0;                    // forecast hour offset 0..3, loops
-const LOOP_SECONDS = 12;          // real seconds for the 3 h loop
+  /* ---------- particles ---------- */
+  const canvas = document.getElementById("windCanvas");
+  const cx = canvas.getContext("2d");
+  let particles = [];
+  const N_PARTICLES = 90;
+  let playing = !reduceMotion;
+  let animT = 0;                    // forecast hour offset 0..3, loops
+  const LOOP_SECONDS = 12;          // real seconds for the 3 h loop
 
-function sizeCanvas(){
-  const box = document.getElementById("map").getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = box.width * dpr; canvas.height = box.height * dpr;
-  canvas.style.width = box.width + "px"; canvas.style.height = box.height + "px";
-  cx.setTransform(dpr,0,0,dpr,0,0);
-  projectGrid();
-  particles = Array.from({length:N_PARTICLES}, () => spawn(box));
-}
-const FADE_FRAMES = 45;   // frames to fade in/out over
-const EDGE_FADE_PX = 36;  // fade out as arrows near the map edge
-function spawn(box){
-  const life = 60 + Math.random()*180;
-  return { x: Math.random()*box.width, y: Math.random()*box.height, life, maxLife: life };
-}
-function drawArrow(p, u, v, kn, alpha){
-  if (alpha <= 0.01) return;
-  const ang = Math.atan2(v, u);
-  const len = 11 + Math.min(16, kn * 0.7);
-  const color = bftColor(beaufort(kn));
-  const front = len * 0.55, tail = -len;
-  cx.save();
-  cx.translate(p.x, p.y);
-  cx.rotate(ang);
-  const grad = cx.createLinearGradient(tail, 0, front, 0);
-  grad.addColorStop(0, hexToRgba(color, 0));
-  grad.addColorStop(1, hexToRgba(color, alpha.toFixed(3)));
-  cx.strokeStyle = grad;
-  cx.lineWidth = 2.5;
-  cx.lineCap = "round";
-  cx.beginPath();
-  cx.moveTo(tail, 0); cx.lineTo(front, 0);
-  cx.stroke();
-  cx.restore();
-}
-let lastTs = null;
-function frame(ts){
+  function sizeCanvas(){
+    const box = document.getElementById("map").getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = box.width * dpr; canvas.height = box.height * dpr;
+    canvas.style.width = box.width + "px"; canvas.style.height = box.height + "px";
+    cx.setTransform(dpr,0,0,dpr,0,0);
+    projectGrid();
+    particles = Array.from({length:N_PARTICLES}, () => spawn(box));
+  }
+  const FADE_FRAMES = 45;   // frames to fade in/out over
+  const EDGE_FADE_PX = 36;  // fade out as arrows near the map edge
+  function spawn(box){
+    const life = 60 + Math.random()*180;
+    return { x: Math.random()*box.width, y: Math.random()*box.height, life, maxLife: life };
+  }
+  function drawArrow(p, u, v, kn, alpha){
+    if (alpha <= 0.01) return;
+    const ang = Math.atan2(v, u);
+    const len = 11 + Math.min(16, kn * 0.7);
+    const color = bftColor(beaufort(kn));
+    const front = len * 0.55, tail = -len;
+    cx.save();
+    cx.translate(p.x, p.y);
+    cx.rotate(ang);
+    const grad = cx.createLinearGradient(tail, 0, front, 0);
+    grad.addColorStop(0, hexToRgba(color, 0));
+    grad.addColorStop(1, hexToRgba(color, alpha.toFixed(3)));
+    cx.strokeStyle = grad;
+    cx.lineWidth = 2.5;
+    cx.lineCap = "round";
+    cx.beginPath();
+    cx.moveTo(tail, 0); cx.lineTo(front, 0);
+    cx.stroke();
+    cx.restore();
+  }
+  let lastTs = null;
+  function frame(ts){
+    requestAnimationFrame(frame);
+    if (lastTs === null) lastTs = ts;
+    const dt = Math.min(0.05, (ts - lastTs)/1000);
+    lastTs = ts;
+    if (!playing) return;
+
+    animT = (animT + dt * 3 / LOOP_SECONDS) % 3;
+    const box = { width: canvas.clientWidth, height: canvas.clientHeight };
+    cx.clearRect(0, 0, box.width, box.height);
+
+    for (const p of particles){
+      const w = sampleWind(p, animT);
+      if (w){
+        const pxPerSec = 3.2;                     // px/s per knot
+        p.x += w.u * pxPerSec * dt;
+        p.y += w.v * pxPerSec * dt;
+
+        const age = p.maxLife - p.life;
+        const fadeIn  = Math.min(1, age / FADE_FRAMES);
+        const fadeOut = Math.min(1, p.life / FADE_FRAMES);
+        const distToEdge = Math.min(p.x, box.width - p.x, p.y, box.height - p.y);
+        const fadeEdge = Math.max(0, Math.min(1, distToEdge / EDGE_FADE_PX));
+        const alpha = fadeIn * fadeOut * fadeEdge;
+
+        drawArrow(p, w.u, w.v, w.sp, alpha);
+      }
+      p.life -= 1;
+      if (p.life <= 0 || p.x < -20 || p.x > box.width+20 || p.y < -20 || p.y > box.height+20){
+        Object.assign(p, spawn(box));
+      }
+    }
+    // time UI
+    const mins = Math.round(animT * 60);
+    const label = windField
+      ? (mins < 3 ? "Now" : `Now +${Math.floor(mins/60)}:${String(mins%60).padStart(2,"0")} h`)
+      : "Loading wind data…";
+    let clock = "";
+    if (windField){
+      const t = windField.times[0]*1000 + animT*3600*1000;
+      clock = " · " + new Date(t).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+    }
+    document.getElementById("timeLabel").textContent = label + clock;
+    document.getElementById("trackFill").style.width = (animT/3*100) + "%";
+  }
+  document.getElementById("playBtn").addEventListener("click", () => {
+    playing = !playing;
+    document.getElementById("playBtn").textContent = playing ? "⏸" : "▶";
+  });
+  if (reduceMotion) document.getElementById("playBtn").textContent = "▶";
+
+  function buildBftLegend(){
+    const el = document.getElementById("bftLegend");
+    if (!el) return;
+    const stops = [0,1,2,3,4,5,6,7,8];
+    el.innerHTML = stops.map(b =>
+      `<span class="bft-swatch"><i style="background:${bftColor(b)}"></i>${b === 8 ? "8+" : b}</span>`
+    ).join("");
+  }
+  buildBftLegend();
+
+  function refit(){ map.invalidateSize(); sizeCanvas(); }
+  map.whenReady(() => { refit(); setTimeout(refit, 300); });
+  window.addEventListener("resize", refit);
+
+  loadWindField();
+  setInterval(loadWindField, 20 * 60 * 1000);
   requestAnimationFrame(frame);
-  if (lastTs === null) lastTs = ts;
-  const dt = Math.min(0.05, (ts - lastTs)/1000);
-  lastTs = ts;
-  if (!playing) return;
-
-  animT = (animT + dt * 3 / LOOP_SECONDS) % 3;
-  const box = { width: canvas.clientWidth, height: canvas.clientHeight };
-  cx.clearRect(0, 0, box.width, box.height);
-
-  for (const p of particles){
-    const w = sampleWind(p, animT);
-    if (w){
-      const pxPerSec = 3.2;                     // px/s per knot
-      p.x += w.u * pxPerSec * dt;
-      p.y += w.v * pxPerSec * dt;
-
-      const age = p.maxLife - p.life;
-      const fadeIn  = Math.min(1, age / FADE_FRAMES);
-      const fadeOut = Math.min(1, p.life / FADE_FRAMES);
-      const distToEdge = Math.min(p.x, box.width - p.x, p.y, box.height - p.y);
-      const fadeEdge = Math.max(0, Math.min(1, distToEdge / EDGE_FADE_PX));
-      const alpha = fadeIn * fadeOut * fadeEdge;
-
-      drawArrow(p, w.u, w.v, w.sp, alpha);
-    }
-    p.life -= 1;
-    if (p.life <= 0 || p.x < -20 || p.x > box.width+20 || p.y < -20 || p.y > box.height+20){
-      Object.assign(p, spawn(box));
-    }
-  }
-  // time UI
-  const mins = Math.round(animT * 60);
-  const label = windField
-    ? (mins < 3 ? "Now" : `Now +${Math.floor(mins/60)}:${String(mins%60).padStart(2,"0")} h`)
-    : "Loading wind data…";
-  let clock = "";
-  if (windField){
-    const t = windField.times[0]*1000 + animT*3600*1000;
-    clock = " · " + new Date(t).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
-  }
-  document.getElementById("timeLabel").textContent = label + clock;
-  document.getElementById("trackFill").style.width = (animT/3*100) + "%";
 }
-document.getElementById("playBtn").addEventListener("click", () => {
-  playing = !playing;
-  document.getElementById("playBtn").textContent = playing ? "⏸" : "▶";
-});
-if (reduceMotion) document.getElementById("playBtn").textContent = "▶";
-
-function buildBftLegend(){
-  const el = document.getElementById("bftLegend");
-  if (!el) return;
-  const stops = [0,1,2,3,4,5,6,7,8];
-  el.innerHTML = stops.map(b =>
-    `<span class="bft-swatch"><i style="background:${bftColor(b)}"></i>${b === 8 ? "8+" : b}</span>`
-  ).join("");
-}
-buildBftLegend();
-
-function refit(){ map.invalidateSize(); sizeCanvas(); }
-map.whenReady(() => { refit(); setTimeout(refit, 300); });
-window.addEventListener("resize", refit);
-
-// Buienradar's gadget renders at a fixed 550x512 px size; scale it visually
-// to fit its card so the whole map shows with no internal scrollbars.
-const radarWrap = document.querySelector(".cam.radar");
-const radarFrame = document.getElementById("radarFrame");
-function fitRadar(){
-  if (!radarWrap || !radarFrame) return;
-  const nativeW = 550, nativeH = 512;
-  const scale = Math.min(radarWrap.clientWidth / nativeW, radarWrap.clientHeight / nativeH);
-  const x = (radarWrap.clientWidth - nativeW * scale) / 2;
-  const y = (radarWrap.clientHeight - nativeH * scale) / 2;
-  radarFrame.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
-}
-if (radarWrap) new ResizeObserver(fitRadar).observe(radarWrap);
-fitRadar();
-loadWindField();
-setInterval(loadWindField, 20 * 60 * 1000);
-requestAnimationFrame(frame);
 
 /* ============================================================
    3. PV PRODUCTION — dummy data, 5.0 kWp
@@ -994,10 +1008,12 @@ function interpKw(pts, h){
   }
   return 0;
 }
-drawPv();
-setTimeout(drawPv, 300);
-window.addEventListener("resize", drawPv);
-setInterval(drawPv, 5 * 60 * 1000);
+if (tileEnabled("pv")){
+  drawPv();
+  setTimeout(drawPv, 300);
+  window.addEventListener("resize", drawPv);
+  setInterval(drawPv, 5 * 60 * 1000);
+}
 
 /* ============================================================
    4. ROOF WIND METER — Ecowitt station via data/wind.json
@@ -1193,9 +1209,11 @@ function drawRoofWind(){
   document.getElementById("rwDir").textContent = lastDir != null ? compass(lastDir) : "--";
   document.getElementById("rwDirDeg").textContent = lastDir != null ? Math.round(lastDir) + "°" : "--";
 }
-loadRoofWind();
-setInterval(loadRoofWind, 5 * 60 * 1000);
-window.addEventListener("resize", drawRoofWind);
+if (tileEnabled("roofwind")){
+  loadRoofWind();
+  setInterval(loadRoofWind, 5 * 60 * 1000);
+  window.addEventListener("resize", drawRoofWind);
+}
 </script>
 </body>
 </html>
