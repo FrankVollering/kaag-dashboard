@@ -48,6 +48,45 @@
     border-bottom:1px solid var(--hairline);
   }
   .clock{font-size:12px;color:var(--mist);font-variant-numeric:tabular-nums}
+  .next-steps-btn{
+    margin-left:auto;background:var(--deep);border:none;color:var(--mist);
+    border-radius:99px;padding:6px 14px;font-size:11px;font-weight:500;
+    letter-spacing:.02em;cursor:pointer;transition:background .15s ease,color .15s ease;
+    font-family:var(--font);
+  }
+  .next-steps-btn:hover{background:#e8e8ed;color:var(--foam)}
+
+  /* ---------- next-steps modal ---------- */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(2px);
+    display:flex;align-items:center;justify-content:center;z-index:1000;
+  }
+  .modal-backdrop[hidden]{display:none}
+  .modal-card{
+    background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid var(--hairline);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:22px 24px;max-width:380px;width:calc(100% - 40px);max-height:calc(100vh - 80px);
+    overflow:auto;
+  }
+  .modal-card h2{
+    font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:14px;color:var(--foam);
+  }
+  .modal-close{
+    background:var(--deep);border:none;color:var(--mist);border-radius:99px;
+    width:26px;height:26px;display:grid;place-items:center;cursor:pointer;font-size:13px;
+  }
+  .modal-close:hover{background:#e8e8ed;color:var(--foam)}
+  .modal-card ul{list-style:none}
+  .modal-card li{
+    position:relative;padding:7px 0 7px 20px;font-size:13px;color:var(--foam);
+    border-bottom:1px solid var(--hairline);
+  }
+  .modal-card li:last-child{border-bottom:none}
+  .modal-card li::before{
+    content:"";position:absolute;left:2px;top:15px;width:6px;height:6px;
+    border-radius:50%;background:var(--breeze);
+  }
 
   /* ---------- grid: 4 × 2, fills the rest of the screen ---------- */
   .grid{
@@ -176,7 +215,15 @@
 
 <header>
   <div class="clock"><span id="dateLine">—</span></div>
+  <button class="next-steps-btn" id="nextStepsBtn">Next steps</button>
 </header>
+
+<div class="modal-backdrop" id="nextStepsModal" hidden>
+  <div class="modal-card">
+    <h2>Next steps <button class="modal-close" id="nextStepsClose" aria-label="Close">✕</button></h2>
+    <ul id="nextStepsList"></ul>
+  </div>
+</div>
 
 <div class="grid">
 
@@ -278,8 +325,25 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="tiles.js"></script>
+<script src="next-steps.js"></script>
 <script>
 "use strict";
+
+/* ---------- next-steps popup ---------- */
+{
+  const btn = document.getElementById("nextStepsBtn");
+  const modal = document.getElementById("nextStepsModal");
+  const closeBtn = document.getElementById("nextStepsClose");
+  const list = document.getElementById("nextStepsList");
+  list.innerHTML = (typeof NEXT_STEPS !== "undefined" ? NEXT_STEPS : [])
+    .map(item => `<li>${item}</li>`).join("");
+  const open = () => { modal.hidden = false; };
+  const close = () => { modal.hidden = true; };
+  btn.addEventListener("click", open);
+  closeBtn.addEventListener("click", close);
+  modal.addEventListener("click", e => { if (e.target === modal) close(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !modal.hidden) close(); });
+}
 
 /* ---------- tile switchboard (edit tiles.js to toggle & reorder) ----------
    The listed order in tiles.js is the display order: tiles are re-appended
@@ -349,6 +413,10 @@ const hexToRgba = (hex, a) => {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
 };
+// avoid the ?? operator (unsupported on Chromium < 80 — the Pi runs
+// Chromium 72 — a parse error here silently kills this whole script
+// block, so no chart initializes at all)
+const nz = v => v == null ? 0 : v;
 
 /* ============================================================
    1. WEATHER CARD
@@ -571,8 +639,8 @@ async function loadWindField(){
     const times = [];
     for (let h = 0; h < HOURS; h++){
       const pts = d.map(loc => {
-        const sp = loc.hourly.wind_speed_10m[base + h] ?? 0;
-        const dir = loc.hourly.wind_direction_10m[base + h] ?? 0;
+        const sp = nz(loc.hourly.wind_speed_10m[base + h]);
+        const dir = nz(loc.hourly.wind_direction_10m[base + h]);
         const to = (dir + 180) * Math.PI / 180;      // direction wind blows TOWARD
         return { u: Math.sin(to) * sp, v: -Math.cos(to) * sp, sp };
       });
@@ -635,27 +703,23 @@ function spawn(box){
   const life = 60 + Math.random()*180;
   return { x: Math.random()*box.width, y: Math.random()*box.height, life, maxLife: life };
 }
-function speedColor(kn, alpha){
-  return hexToRgba(bftColor(beaufort(kn)), (0.9*alpha).toFixed(3));
-}
 function drawArrow(p, u, v, kn, alpha){
   if (alpha <= 0.01) return;
   const ang = Math.atan2(v, u);
-  const len = 7 + Math.min(10, kn * 0.5);
+  const len = 11 + Math.min(16, kn * 0.7);
+  const color = bftColor(beaufort(kn));
+  const front = len * 0.55, tail = -len;
   cx.save();
   cx.translate(p.x, p.y);
   cx.rotate(ang);
-  cx.strokeStyle = speedColor(kn, alpha);
-  cx.lineWidth = 1.5;
+  const grad = cx.createLinearGradient(tail, 0, front, 0);
+  grad.addColorStop(0, hexToRgba(color, 0));
+  grad.addColorStop(1, hexToRgba(color, alpha.toFixed(3)));
+  cx.strokeStyle = grad;
+  cx.lineWidth = 2.5;
   cx.lineCap = "round";
-  cx.lineJoin = "round";
-  cx.beginPath();                       // shaft
-  cx.moveTo(-len, 0); cx.lineTo(len*0.55, 0);
-  cx.stroke();
-  cx.beginPath();                       // head
-  cx.moveTo(len*0.55 - 4, -3.4);
-  cx.lineTo(len*0.55, 0);
-  cx.lineTo(len*0.55 - 4, 3.4);
+  cx.beginPath();
+  cx.moveTo(tail, 0); cx.lineTo(front, 0);
   cx.stroke();
   cx.restore();
 }
@@ -1013,7 +1077,7 @@ function drawRoofWind(){
   const padL = 34, padR = 24, padT = 16, padB = 26;
   const x0 = 0, x1 = 24;
   // round the top of the scale up to a multiple of 4 nice steps (5/10/20 km/h)
-  const rawMax = Math.max(20, Math.max(...pts.map(p=>Math.max(p.gust ?? 0, p.kmh)), ...forecast.map(p=>p.kmh), 0));
+  const rawMax = Math.max(20, Math.max(...pts.map(p=>Math.max(nz(p.gust), p.kmh)), ...forecast.map(p=>p.kmh), 0));
   const kmhStep = rawMax <= 20 ? 5 : rawMax <= 40 ? 10 : 20;
   const maxKmh = Math.ceil(rawMax / (kmhStep * 4)) * kmhStep * 4;
   const X = h => padL + (h - x0) / (x1 - x0) * (W - padL - padR);
@@ -1111,8 +1175,8 @@ function drawRoofWind(){
 
   // stats
   const kmhNow = past.length ? past[past.length-1].kmh : 0;
-  const gustNow = past.length ? (past[past.length-1].gust ?? 0) : 0;
-  const maxGust = past.length ? Math.max(...past.map(p=>p.gust ?? 0)) : 0;
+  const gustNow = past.length ? nz(past[past.length-1].gust) : 0;
+  const maxGust = past.length ? Math.max(...past.map(p=>nz(p.gust))) : 0;
   const toBft = kmh => {
     let b = 0;
     for (let i = 0; i < BFT_KMH_BOUNDS.length; i++) if (kmh >= BFT_KMH_BOUNDS[i]) b = i;
