@@ -12,6 +12,6 @@ const TILES = {
   roofwind:      true,   // Ecowitt roof wind meter
   windmap:       true,   // animated wind map
   cam2:          true,   // Kaag cam
-  pv:            true,   // solar production (dummy data) 
-  marinetraffic: true,  // AIS ship map
+  pv:            false,   // solar production (dummy data) 
+  marinetraffic: false,  // AIS ship map
 };
