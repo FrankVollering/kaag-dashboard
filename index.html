@@ -159,7 +159,7 @@
 
   /* ---------- cams ---------- */
   .cam{position:relative;width:100%;flex:1;min-height:120px;border-radius:16px;overflow:hidden;border:1px solid var(--hairline);background:#000}
-  .cam iframe{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;border:0}
+  .cam iframe,.cam img{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;border:0;object-fit:cover}
   .cam.radar{background:#eef1f2}
   .cam.radar iframe{width:550px;height:512px;top:0;left:0;transform-origin:top left}
 
@@ -302,6 +302,20 @@
     </div>
   </section>
 
+  <!-- CAM 1 (SNAPSHOT) — lightweight alternative to cam1, refreshed still image instead of live video -->
+  <section class="card" data-tile="cam1-snap">
+    <div class="cam">
+      <img id="cam1Snap" title="Live camera 1 — Kaag ferry (snapshot)">
+    </div>
+  </section>
+
+  <!-- CAM 2 (SNAPSHOT) — lightweight alternative to cam2, refreshed still image instead of live video -->
+  <section class="card" data-tile="cam2-snap">
+    <div class="cam">
+      <img id="cam2Snap" title="Live camera 2 — Kaag (snapshot)">
+    </div>
+  </section>
+
   <!-- ROOF WIND METER -->
   <section class="card" data-tile="roofwind">
     <div class="stat-bar">
@@ -367,6 +381,43 @@ for (const [name, on] of Object.entries(typeof TILES !== "undefined" ? TILES : {
 // gates each tile's own script below — a disabled tile shouldn't keep
 // fetching data or animating in the background just because it's hidden
 const tileEnabled = name => (typeof TILES !== "undefined" ? !!TILES[name] : true);
+
+/* ---------- CAM SNAPSHOT TILES (cam1-snap / cam2-snap) ----------
+   Lightweight alternative to the live-video iframe cams: fetches a
+   still JPEG on an interval instead of decoding a live stream.
+   Meant for low-power devices (e.g. Raspberry Pi 3) that can't
+   handle live video decoding smoothly. */
+const CAM_SNAPSHOTS = [
+  { tile: "cam1-snap", alias: "5f11a99d77f3c", imgId: "cam1Snap" },
+  { tile: "cam2-snap", alias: "643553862c07a", imgId: "cam2Snap" },
+];
+
+for (const cam of CAM_SNAPSHOTS){
+  if (!tileEnabled(cam.tile)) continue;
+  let streamInfo = null;
+
+  const refreshStreamInfo = async () => {
+    try {
+      const res = await fetch(`https://ipcamlive.com/player/getcamerastreamstate.php?alias=${cam.alias}`);
+      const data = await res.json();
+      streamInfo = { address: data.details.address, streamid: data.details.streamid };
+    } catch (e) {
+      console.error(`Failed to refresh stream info for ${cam.tile}`, e);
+    }
+  };
+
+  const updateImage = () => {
+    if (!streamInfo) return;
+    const img = document.getElementById(cam.imgId);
+    if (!img) return;
+    img.src = `${streamInfo.address}streams/${streamInfo.streamid}/snapshot.jpg?${Date.now()}`;
+  };
+
+  refreshStreamInfo();
+  setInterval(refreshStreamInfo, 60000);   // streamid can change on reconnect
+  setInterval(updateImage, 1000);
+}
+
 /* ============================================================
    De Kaag home dashboard
    - Weather + wind: Open-Meteo (free, CORS-enabled, no API key)
