@@ -7,11 +7,20 @@
 // ============================================================
 const TILES = {
   weather:       true,   // forecast + temperature chart
+<<<<<<< Updated upstream
   buienradar:    true,   // rain radar
   cam1:          false,   // ferry cam (live video, iframe)
   "cam1-snap":   true,  // ferry cam, snapshot version (lighter on the Pi than cam1)
+=======
+>>>>>>> Stashed changes
   roofwind:      true,   // Ecowitt roof wind meter
+  cam1:          false,   // ferry cam (live video, iframe)
+  "cam1-snap":   true,  // ferry cam, snapshot version (lighter on the Pi than cam1)
   windmap:       true,   // animated wind map
+<<<<<<< Updated upstream
+=======
+  buienradar:    true,   // rain radar
+>>>>>>> Stashed changes
   cam2:          false,   // Kaag cam (live video, iframe)
   "cam2-snap":   true,  // Kaag cam, snapshot version (lighter on the Pi than cam2)
   pv:            false,   // solar production (dummy data)

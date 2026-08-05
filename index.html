@@ -51,10 +51,18 @@
   .next-steps-btn{
     margin-left:auto;background:var(--deep);border:none;color:var(--mist);
     border-radius:99px;padding:6px 14px;font-size:22px;font-weight:500;
-    letter-spacing:.02em;cursor:pointer;transition:background .15s ease,color .15s ease;
-    font-family:var(--font);
+    letter-spacing:.02em;cursor:pointer;font-family:var(--font);
+    transition:background .15s ease,color .15s ease,opacity .4s ease;
+    opacity:1;
   }
   .next-steps-btn:hover{background:#e8e8ed;color:var(--foam)}
+  .next-steps-btn.is-hidden{opacity:0;pointer-events:none}
+
+  /* ---------- footer ---------- */
+  footer{
+    flex:0 0 auto;text-align:center;padding-top:6px;margin-top:8px;
+    font-size:11px;color:var(--mist);border-top:1px solid var(--hairline);
+  }
 
   /* ---------- next-steps modal ---------- */
   .modal-backdrop{
@@ -136,24 +144,17 @@
   #windCanvas{position:absolute;top:0;right:0;bottom:0;left:0;pointer-events:none;z-index:500}
   .timebar{
     display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;flex:0 0 auto;
-    font-size:11px;color:var(--mist);
+    font-size:18pt;color:var(--mist);
   }
   .track{flex:1;min-width:80px;height:4px;background:var(--hairline);border-radius:2px;position:relative}
   .track i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--breeze);border-radius:2px}
   .tlabel{color:var(--foam);min-width:118px;font-weight:500;font-variant-numeric:tabular-nums}
-  #bftNow{min-width:auto;color:var(--foam);font-weight:600}
-  .legend{display:flex;align-items:center;gap:4px;font-size:9px}
-  .legend b{font-weight:500}
-  .lg{display:inline-block;width:16px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
-  .bft-swatch{
-    display:flex;flex-direction:column;align-items:center;gap:2px;
-    color:var(--mist);line-height:1;
-  }
-  .bft-swatch i{display:block;width:12px;height:8px;border-radius:2px}
+  #mapBft{min-width:auto;color:var(--foam);font-weight:600}
 
   /* ---------- cams ---------- */
   .cam{position:relative;width:100%;flex:1;min-height:120px;border-radius:16px;overflow:hidden;border:1px solid var(--hairline);background:#000}
   .cam iframe,.cam img{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;border:0;object-fit:cover}
+  .cam img{object-fit:fill}
   .cam.radar{background:#eef1f2}
   .cam.radar iframe{width:550px;height:512px;top:0;left:0;transform-origin:top left}
 
@@ -169,15 +170,22 @@
   .fig b small{font-size:8px;color:var(--mist);font-weight:500;margin-left:1px}
   .fig em{display:block;font-style:normal;font-size:8px;color:var(--mist);font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:1px}
   .rw-updated{flex:0 0 auto;margin-top:6px;font-size:14px;color:var(--mist);font-variant-numeric:tabular-nums}
-  /* roof wind tile: larger indicator figures (only 4 figs, so there's room) */
-  [data-tile="roofwind"] .fig span{font-size:20px}
-  [data-tile="roofwind"] .fig b{font-size:24px}
-  [data-tile="roofwind"] .fig b small{font-size:16px}
+  /* roof wind tile: larger indicator figures (only 3 figs, so there's room) */
+  [data-tile="roofwind"] .fig span{font-size:20px;text-transform:none}
+  [data-tile="roofwind"] .fig b{font-size:28px}
+  [data-tile="roofwind"] .fig b small{font-size:20px}
   [data-tile="roofwind"] .fig em{font-size:14px}
+  [data-tile="roofwind"] .fig{text-align:center}
+  .compass{width:22px;height:22px;color:var(--mist);display:block}
+  [data-tile="roofwind"] .compass{width:34px;height:34px;margin:2px auto 1px}
+  #rwNeedle{transform-origin:20px 20px;transition:transform .4s ease}
   .fig.sun b{color:var(--sun)}
   .fig.feed b{color:var(--leaf)}
   .fig.fromgrid b{color:var(--breeze)}
   .fig.wind b{color:var(--breeze)}
+  .fig.wind b small{color:var(--breeze)}
+  .fig.gust b{color:rgba(0,113,227,.30)}
+  .fig.gust b small{color:rgba(0,113,227,.30)}
   #pvChart{width:100%;flex:1;min-height:100px;display:block}
   #rwChart{width:100%;flex:1;min-height:100px;display:block}
   .demo{
@@ -229,7 +237,7 @@
       <div class="wx-now">
         <div class="wx-icon" id="wxIcon">⛅</div>
         <div class="wx-temp" id="wxTemp">--°</div>
-        <div class="wx-desc"><span id="wxDesc">Fetching forecast…</span><small id="wxRange">min --° · max --°</small></div>
+        <div class="wx-desc"><span id="wxDesc">Fetching forecast…</span><small id="wxRange">min --° · max --°</small><small id="wxSun">Sunrise --:-- · Sunset --:--</small></div>
       </div>
       <canvas id="wxChart"></canvas>
     </div>
@@ -265,9 +273,8 @@
     </div>
     <div class="timebar">
       <span class="tlabel" id="timeLabel">Now</span>
+      <span class="tlabel" id="mapBft">-- Bft</span>
       <div class="track"><i id="trackFill"></i></div>
-      <span class="tlabel" id="bftNow">-- Bft</span>
-      <span class="legend" id="bftLegend"></span>
     </div>
     <div class="err" id="windErr" style="margin-top:6px;display:none"></div>
   </section>
@@ -313,16 +320,27 @@
   <!-- ROOF WIND METER -->
   <section class="card" data-tile="roofwind">
     <div class="stat-bar">
-      <div class="fig wind"><span>Now</span><b id="rwNow">-- <small>Bft</small></b><em id="rwNowKmh">--</em></div>
-      <div class="fig"><span>Gust</span><b id="rwGust">-- <small>Bft</small></b><em id="rwGustKmh">--</em></div>
-      <div class="fig"><span>Max</span><b id="rwMax">-- <small>Bft</small></b><em id="rwMaxKmh">--</em></div>
-      <div class="fig"><span>Dir</span><b id="rwDir">--</b><em id="rwDirDeg">--</em></div>
+      <div class="fig wind"><span>Wind speed</span><b id="rwNow">-- <small>Bft</small></b><em id="rwNowKmh">--</em></div>
+      <div class="fig gust"><span>Wind gusts</span><b id="rwGust">-- <small>Bft</small></b><em id="rwGustKmh">--</em></div>
+      <div class="fig">
+        <span>Direction</span>
+        <svg id="rwCompass" class="compass" viewBox="0 0 40 40">
+          <circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="2"/>
+          <text x="20" y="9" text-anchor="middle" font-size="7" fill="currentColor" opacity=".55">N</text>
+          <g id="rwNeedle">
+            <polygon points="20,5 15.5,21 20,17.5 24.5,21" fill="var(--breeze)"/>
+          </g>
+        </svg>
+        <em id="rwDirText">--</em>
+      </div>
     </div>
     <canvas id="rwChart"></canvas>
     <div class="rw-updated" id="rwUpdated">last run: --</div>
   </section>
 
 </div>
+
+<footer>&copy; Frank Vollering</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="tiles.js"></script>
@@ -344,6 +362,18 @@
   closeBtn.addEventListener("click", close);
   modal.addEventListener("click", e => { if (e.target === modal) close(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !modal.hidden) close(); });
+
+  // show on mouse movement, hide again after 5s of no movement
+  let hideTimer = null;
+  const scheduleHide = () => {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => btn.classList.add("is-hidden"), 5000);
+  };
+  document.addEventListener("mousemove", () => {
+    btn.classList.remove("is-hidden");
+    scheduleHide();
+  });
+  scheduleHide();
 }
 
 /* ---------- tile switchboard (edit tiles.js to toggle & reorder) ----------
@@ -482,9 +512,9 @@ async function loadWeather(){
     document.getElementById("wxDesc").textContent = desc;
     document.getElementById("wxRange").textContent =
       `min ${Math.round(d.daily.temperature_2m_min[0])}° · max ${Math.round(d.daily.temperature_2m_max[0])}°`;
-    const kn = c.wind_speed_10m;
-    const bftNowEl = document.getElementById("bftNow");
-    if (bftNowEl) bftNowEl.textContent = `Now: ${beaufort(kn)} Bft`;
+    const fmtTime = unixSec => new Date(unixSec*1000).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+    document.getElementById("wxSun").textContent =
+      `Sunrise ${fmtTime(d.daily.sunrise[0])} · Sunset ${fmtTime(d.daily.sunset[0])}`;
     document.getElementById("wxUpdated").textContent =
       "updated " + new Date().toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
 
@@ -522,8 +552,8 @@ function drawWeatherChart(){
   const now = new Date();
   const nowH = now.getHours() + now.getMinutes()/60;
   const x0 = 0, x1 = 24;
-  const padL = 28, padR = 8, padT = 48, padB = 20;
-  const bftY = 10, iconY = 38;
+  const padL = 28, padR = 8, padT = 14, padB = 92;
+  const hourY = H - 70, iconY = H - 38, bftY = H - 8;
   // axis floor: 0 when all temps are positive, otherwise the coldest reading
   const minT = Math.min(0, Math.floor(Math.min(...pts.map(p=>p.temp)) - 1));
   const maxT = Math.ceil(Math.max(...pts.map(p=>p.temp)) + 1);
@@ -556,7 +586,7 @@ function drawWeatherChart(){
     g.globalAlpha = 1; g.fillText(Math.round(t)+"°", 2, Y(t)+3);
   }
   g.textAlign = "center";
-  for (let h = 0; h <= 24; h += 4) g.fillText(String(h).padStart(2,"0"), X(h), H-6);
+  for (let h = 0; h <= 24; h += 4) g.fillText(String(h).padStart(2,"0"), X(h), hourY);
   g.textAlign = "left";
   // hourly dots along the bottom axis
   g.fillStyle = "rgba(0,0,0,.35)";
@@ -588,7 +618,7 @@ function drawWeatherChart(){
     g.stroke(); g.setLineDash([]);
   }
 
-  // weather icon row, one icon per 2h, above the temperature graph.
+  // weather icon row, one icon per 2h, below the temperature graph.
   // At night, sun icons become the moon in its current phase — drawn on the
   // canvas so only the illuminated part is visible (no dark disc).
   const SYNODIC = 29.53058867;
@@ -623,16 +653,16 @@ function drawWeatherChart(){
     }
   });
 
-  // Bft wind row, one number per 2h, above the weather icons
+  // Bft wind row, one number per 2h, below the weather icons
   g.font = "14px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   g.fillStyle = css("--mist");
   pts.forEach((p,i) => {
     if (i % 2 !== 0) return;
-    g.fillText(beaufort(p.wind), X(p.h), bftY + 3);
+    g.fillText(beaufort(p.wind), X(p.h), bftY);
   });
   g.textAlign = "left";
   g.fillStyle = css("--mist"); g.font = "14px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
-  g.fillText("Bft", 2, bftY + 3);
+  g.fillText("Bft", 2, bftY);
 }
 if (tileEnabled("weather")){
   loadWeather();
@@ -747,6 +777,16 @@ if (tileEnabled("windmap")){
     return { u, v, sp: Math.hypot(u,v) };
   }
 
+  /* average forecast wind speed (knots) across the 9 grid cells, at fractional hour hf */
+  function avgSpeedAt(hf){
+    if (!windField) return null;
+    const h0 = Math.min(3, Math.floor(hf)), fh = hf - h0;
+    const A = windField.hours[h0], B = windField.hours[h0 + 1];
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += A[i].sp * (1 - fh) + B[i].sp * fh;
+    return sum / 9;
+  }
+
   /* ---------- particles ---------- */
   const canvas = document.getElementById("windCanvas");
   const cx = canvas.getContext("2d");
@@ -812,7 +852,8 @@ if (tileEnabled("windmap")){
     stepTimer += stepDt;
     if (stepTimer >= STEP_SECONDS){
       stepTimer -= STEP_SECONDS;
-      animT = (animT + STEP_HOURS) % 3;
+      const nextT = animT + STEP_HOURS;
+      animT = nextT > 3 ? 0 : nextT;   // hold briefly at +3h before looping back to now
     }
     const box = { width: canvas.clientWidth, height: canvas.clientHeight };
     cx.clearRect(0, 0, box.width, box.height);
@@ -850,17 +891,9 @@ if (tileEnabled("windmap")){
     }
     document.getElementById("timeLabel").textContent = label + clock;
     document.getElementById("trackFill").style.width = (animT/3*100) + "%";
+    document.getElementById("mapBft").textContent =
+      windField ? `${beaufort(avgSpeedAt(animT))} Bft` : "-- Bft";
   }
-
-  function buildBftLegend(){
-    const el = document.getElementById("bftLegend");
-    if (!el) return;
-    const stops = [0,1,2,3,4,5,6,7,8];
-    el.innerHTML = stops.map(b =>
-      `<span class="bft-swatch"><i style="background:${bftColor(b)}"></i>${b === 8 ? "8+" : b}</span>`
-    ).join("");
-  }
-  buildBftLegend();
 
   function refit(){ map.invalidateSize(); sizeCanvas(); }
   map.whenReady(() => { refit(); setTimeout(refit, 300); });
@@ -1140,7 +1173,7 @@ function drawRoofWind(){
   const pts = roofWindData ? roofWindData.pts : [];
   const forecast = getWindForecastKmh();
   const nowH = rwHour(new Date());
-  const padL = 34, padR = 30, padT = 16, padB = 26;
+  const padL = 34, padR = 56, padT = 16, padB = 26;
   const x0 = 0, x1 = 24;
   // round the top of the scale up to a multiple of 4 nice steps (5/10/20 km/h)
   const rawMax = Math.max(20, Math.max(...pts.map(p=>Math.max(nz(p.gust), p.kmh)), ...forecast.map(p=>p.kmh), 0));
@@ -1175,7 +1208,11 @@ function drawRoofWind(){
   const plotH = H - padT - padB;
   const labelEvery = plotH / (maxKmh/5) >= 12 ? 5 : 10;   // thin out labels when dense
   g.textAlign = "right";
-  for (let v = 0; v < maxKmh; v += labelEvery) g.fillText(v, W - 6, Y(v)+3);
+  for (let v = 0; v < maxKmh; v += labelEvery) g.fillText(v, W - 32, Y(v)+3);
+  // second right-hand column: same axis, expressed in knots, steps of 5
+  const KN_TO_KMH = 1.852;
+  const maxKn = maxKmh / KN_TO_KMH;
+  for (let kn = 0; kn < maxKn; kn += 5) g.fillText(kn, W - 6, Y(kn * KN_TO_KMH)+3);
   g.textAlign = "center";
   for (let h = 0; h <= 24; h += 4) g.fillText(String(h).padStart(2,"0"), X(h), H-8);
   g.textAlign = "left";
@@ -1186,7 +1223,8 @@ function drawRoofWind(){
   g.font = "14px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   g.fillText("Bft", 6, padT - 6);
   g.textAlign = "right";
-  g.fillText("km/h", W - 6, padT - 6);
+  g.fillText("km/h", W - 32, padT - 6);
+  g.fillText("kt", W - 6, padT - 6);
   g.textAlign = "left";
   let lastLabelY = Infinity;
   g.textBaseline = "middle";
@@ -1245,7 +1283,6 @@ function drawRoofWind(){
   // stats
   const kmhNow = past.length ? past[past.length-1].kmh : 0;
   const gustNow = past.length ? nz(past[past.length-1].gust) : 0;
-  const maxGust = past.length ? Math.max(...past.map(p=>nz(p.gust))) : 0;
   const toBft = kmh => {
     let b = 0;
     for (let i = 0; i < BFT_KMH_BOUNDS.length; i++) if (kmh >= BFT_KMH_BOUNDS[i]) b = i;
@@ -1257,10 +1294,10 @@ function drawRoofWind(){
   };
   setFig("rwNow", kmhNow);
   setFig("rwGust", gustNow);
-  setFig("rwMax", maxGust);
   const lastDir = roofWindData ? roofWindData.lastDir : null;
-  document.getElementById("rwDir").textContent = lastDir != null ? compass(lastDir) : "--";
-  document.getElementById("rwDirDeg").textContent = lastDir != null ? Math.round(lastDir) + "°" : "--";
+  document.getElementById("rwNeedle").style.transform = `rotate(${lastDir != null ? lastDir : 0}deg)`;
+  document.getElementById("rwDirText").textContent =
+    lastDir != null ? `${compass(lastDir)} ${Math.round(lastDir)}°` : "--";
 }
 if (tileEnabled("roofwind")){
   loadRoofWind();
