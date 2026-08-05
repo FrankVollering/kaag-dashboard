@@ -47,10 +47,10 @@
     padding-bottom:6px;margin-bottom:8px;flex:0 0 auto;
     border-bottom:1px solid var(--hairline);
   }
-  .clock{font-size:12px;color:var(--mist);font-variant-numeric:tabular-nums}
+  .clock{font-size:16px;color:var(--mist);font-variant-numeric:tabular-nums}
   .next-steps-btn{
     margin-left:auto;background:var(--deep);border:none;color:var(--mist);
-    border-radius:99px;padding:6px 14px;font-size:11px;font-weight:500;
+    border-radius:99px;padding:6px 14px;font-size:16px;font-weight:500;
     letter-spacing:.02em;cursor:pointer;transition:background .15s ease,color .15s ease;
     font-family:var(--font);
   }
@@ -125,8 +125,8 @@
     font-variant-numeric:tabular-nums;
   }
   .wx-icon{font-size:36px;line-height:1}
-  .wx-desc{font-size:15px;color:var(--foam);font-weight:500}
-  .wx-desc small{display:block;color:var(--mist);margin-top:3px;font-size:12px;font-weight:400}
+  .wx-desc{font-size:20px;color:var(--foam);font-weight:500}
+  .wx-desc small{display:block;color:var(--mist);margin-top:3px;font-size:16px;font-weight:400}
   #wxChart{width:100%;flex:1;min-height:120px;display:block;margin-top:10px}
   .err{color:#d9480f;font-size:13px}
 
@@ -138,12 +138,6 @@
     display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;flex:0 0 auto;
     font-size:11px;color:var(--mist);
   }
-  .timebar button{
-    background:var(--deep);border:none;color:var(--foam);
-    border-radius:99px;width:28px;height:28px;display:grid;place-items:center;
-    cursor:pointer;font-size:12px;transition:background .15s ease;
-  }
-  .timebar button:hover{background:#e8e8ed}
   .track{flex:1;min-width:80px;height:4px;background:var(--hairline);border-radius:2px;position:relative}
   .track i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--breeze);border-radius:2px}
   .tlabel{color:var(--foam);min-width:118px;font-weight:500;font-variant-numeric:tabular-nums}
@@ -174,12 +168,12 @@
   .fig b{font-weight:700;font-size:11px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap}
   .fig b small{font-size:8px;color:var(--mist);font-weight:500;margin-left:1px}
   .fig em{display:block;font-style:normal;font-size:8px;color:var(--mist);font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:1px}
-  .rw-updated{flex:0 0 auto;margin-top:6px;font-size:8px;color:var(--mist);font-variant-numeric:tabular-nums}
+  .rw-updated{flex:0 0 auto;margin-top:6px;font-size:14px;color:var(--mist);font-variant-numeric:tabular-nums}
   /* roof wind tile: larger indicator figures (only 4 figs, so there's room) */
-  [data-tile="roofwind"] .fig span{font-size:10px}
-  [data-tile="roofwind"] .fig b{font-size:20px}
-  [data-tile="roofwind"] .fig b small{font-size:11px}
-  [data-tile="roofwind"] .fig em{font-size:11px}
+  [data-tile="roofwind"] .fig span{font-size:20px}
+  [data-tile="roofwind"] .fig b{font-size:24px}
+  [data-tile="roofwind"] .fig b small{font-size:16px}
+  [data-tile="roofwind"] .fig em{font-size:14px}
   .fig.sun b{color:var(--sun)}
   .fig.feed b{color:var(--leaf)}
   .fig.fromgrid b{color:var(--breeze)}
@@ -190,8 +184,6 @@
     font-size:10px;letter-spacing:.02em;background:rgba(184,134,11,.12);color:var(--sun);
     border-radius:99px;padding:3px 9px;font-weight:500;
   }
-
-  footer{margin-top:10px;flex:0 0 auto;color:var(--mist);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   /* Leaflet tweaks */
   .leaflet-container{font-family:var(--font)}
@@ -207,7 +199,6 @@
     #pvChart{flex:none;height:220px}
     #rwChart{flex:none;height:220px}
     #wxChart{flex:none;height:220px}
-    footer{white-space:normal}
   }
 
   body.hide-cursor {
@@ -273,7 +264,6 @@
       <canvas id="windCanvas"></canvas>
     </div>
     <div class="timebar">
-      <button id="playBtn" aria-label="Play or pause the wind animation">⏸</button>
       <span class="tlabel" id="timeLabel">Now</span>
       <div class="track"><i id="trackFill"></i></div>
       <span class="tlabel" id="bftNow">-- Bft</span>
@@ -333,13 +323,6 @@
   </section>
 
 </div>
-
-<footer>
-  Forecast &amp; wind field: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (free, no key) ·
-  Live cameras: <a href="https://kaag-pontcam.nl" target="_blank" rel="noopener">kaag-pontcam.nl</a> (Royal van Lent Shipyard — Feadship) ·
-  Rain radar: <a href="https://www.buienradar.nl" target="_blank" rel="noopener">Buienradar</a> ·
-  Map: © OpenStreetMap contributors, © CARTO · Solar graph uses simulated data until the inverter is linked.
-</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="tiles.js"></script>
@@ -435,8 +418,11 @@ const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").match
 /* ---------- clock ---------- */
 function tickClock(){
   const n = new Date();
-  document.getElementById("dateLine").textContent =
-    n.toLocaleDateString("en-GB",{weekday:"long", day:"numeric", month:"long"});
+  const weekday = n.toLocaleDateString("en-GB",{weekday:"long"});
+  const dayMonth = n.toLocaleDateString("en-GB",{day:"numeric", month:"long"});
+  const date = `${weekday}, ${dayMonth}`;
+  const time = n.toLocaleTimeString("en-GB",{hour:"2-digit", minute:"2-digit", hour12:false});
+  document.getElementById("dateLine").textContent = `${date} · ${time}`;
 }
 tickClock(); setInterval(tickClock, 15000);
 
@@ -563,7 +549,7 @@ function drawWeatherChart(){
 
   // gridlines + temperature axis (left)
   g.strokeStyle = css("--hairline"); g.fillStyle = css("--mist");
-  g.font = "10px -apple-system,BlinkMacSystemFont,Inter,sans-serif"; g.lineWidth = 1;
+  g.font = "14px -apple-system,BlinkMacSystemFont,Inter,sans-serif"; g.lineWidth = 1;
   const step = Math.max(2, Math.round((maxT-minT)/4/2)*2);
   for (let t = Math.ceil(minT/step)*step; t <= maxT; t += step){
     g.globalAlpha = .5; g.beginPath(); g.moveTo(padL, Y(t)); g.lineTo(W-padR, Y(t)); g.stroke();
@@ -638,14 +624,14 @@ function drawWeatherChart(){
   });
 
   // Bft wind row, one number per 2h, above the weather icons
-  g.font = "9px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
+  g.font = "14px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   g.fillStyle = css("--mist");
   pts.forEach((p,i) => {
     if (i % 2 !== 0) return;
     g.fillText(beaufort(p.wind), X(p.h), bftY + 3);
   });
   g.textAlign = "left";
-  g.fillStyle = css("--mist"); g.font = "8px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
+  g.fillStyle = css("--mist"); g.font = "13px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   g.fillText("Bft", 2, bftY + 3);
 }
 if (tileEnabled("weather")){
@@ -765,10 +751,11 @@ if (tileEnabled("windmap")){
   const canvas = document.getElementById("windCanvas");
   const cx = canvas.getContext("2d");
   let particles = [];
-  const N_PARTICLES = 90;
-  let playing = !reduceMotion;
+  const N_PARTICLES = 45;           // halved from 90 — fewer arrows to update/draw each tick (Pi perf)
   let animT = 0;                    // forecast hour offset 0..3, loops
-  const LOOP_SECONDS = 12;          // real seconds for the 3 h loop
+  const STEP_MINUTES = 15;          // forecast time jumps in 15-min increments...
+  const STEP_HOURS = STEP_MINUTES / 60;
+  const STEP_SECONDS = 1;           // ...holding each one for a second before jumping to the next
 
   function sizeCanvas(){
     const box = document.getElementById("map").getBoundingClientRect();
@@ -779,10 +766,10 @@ if (tileEnabled("windmap")){
     projectGrid();
     particles = Array.from({length:N_PARTICLES}, () => spawn(box));
   }
-  const FADE_FRAMES = 45;   // frames to fade in/out over
+  const FADE_SECONDS = 0.75;   // time to fade in/out over
   const EDGE_FADE_PX = 36;  // fade out as arrows near the map edge
   function spawn(box){
-    const life = 60 + Math.random()*180;
+    const life = 1 + Math.random()*3;   // seconds
     return { x: Math.random()*box.width, y: Math.random()*box.height, life, maxLife: life };
   }
   function drawArrow(p, u, v, kn, alpha){
@@ -806,14 +793,27 @@ if (tileEnabled("windmap")){
     cx.restore();
   }
   let lastTs = null;
+  let frameAcc = 0;
+  let stepTimer = 0;
+  const TARGET_FPS = 15;             // cap the animation loop — the browser still
+  const FRAME_INTERVAL = 1 / TARGET_FPS;   // ticks at ~60fps, but we skip the work most of the time (Pi perf)
   function frame(ts){
     requestAnimationFrame(frame);
     if (lastTs === null) lastTs = ts;
     const dt = Math.min(0.05, (ts - lastTs)/1000);
     lastTs = ts;
-    if (!playing) return;
+    if (reduceMotion) return;
 
-    animT = (animT + dt * 3 / LOOP_SECONDS) % 3;
+    frameAcc += dt;
+    if (frameAcc < FRAME_INTERVAL) return;
+    const stepDt = frameAcc;         // real elapsed time since the last processed step
+    frameAcc = 0;
+
+    stepTimer += stepDt;
+    if (stepTimer >= STEP_SECONDS){
+      stepTimer -= STEP_SECONDS;
+      animT = (animT + STEP_HOURS) % 3;
+    }
     const box = { width: canvas.clientWidth, height: canvas.clientHeight };
     cx.clearRect(0, 0, box.width, box.height);
 
@@ -821,19 +821,19 @@ if (tileEnabled("windmap")){
       const w = sampleWind(p, animT);
       if (w){
         const pxPerSec = 3.2;                     // px/s per knot
-        p.x += w.u * pxPerSec * dt;
-        p.y += w.v * pxPerSec * dt;
+        p.x += w.u * pxPerSec * stepDt;
+        p.y += w.v * pxPerSec * stepDt;
 
         const age = p.maxLife - p.life;
-        const fadeIn  = Math.min(1, age / FADE_FRAMES);
-        const fadeOut = Math.min(1, p.life / FADE_FRAMES);
+        const fadeIn  = Math.min(1, age / FADE_SECONDS);
+        const fadeOut = Math.min(1, p.life / FADE_SECONDS);
         const distToEdge = Math.min(p.x, box.width - p.x, p.y, box.height - p.y);
         const fadeEdge = Math.max(0, Math.min(1, distToEdge / EDGE_FADE_PX));
         const alpha = fadeIn * fadeOut * fadeEdge;
 
         drawArrow(p, w.u, w.v, w.sp, alpha);
       }
-      p.life -= 1;
+      p.life -= stepDt;
       if (p.life <= 0 || p.x < -20 || p.x > box.width+20 || p.y < -20 || p.y > box.height+20){
         Object.assign(p, spawn(box));
       }
@@ -851,11 +851,6 @@ if (tileEnabled("windmap")){
     document.getElementById("timeLabel").textContent = label + clock;
     document.getElementById("trackFill").style.width = (animT/3*100) + "%";
   }
-  document.getElementById("playBtn").addEventListener("click", () => {
-    playing = !playing;
-    document.getElementById("playBtn").textContent = playing ? "⏸" : "▶";
-  });
-  if (reduceMotion) document.getElementById("playBtn").textContent = "▶";
 
   function buildBftLegend(){
     const el = document.getElementById("bftLegend");
@@ -957,7 +952,7 @@ function drawPv(){
 
   // gridlines + axis labels
   g.strokeStyle = css("--hairline"); g.fillStyle = css("--mist");
-  g.font = "10px -apple-system,BlinkMacSystemFont,Inter,sans-serif"; g.lineWidth = 1;
+  g.font = "14px -apple-system,BlinkMacSystemFont,Inter,sans-serif"; g.lineWidth = 1;
   for (let kw = 0; kw <= maxKw; kw++){
     g.globalAlpha = .55; g.beginPath(); g.moveTo(padL, Y(kw)); g.lineTo(W-padR, Y(kw)); g.stroke();
     g.globalAlpha = 1; g.fillText(kw + " kW", 6, Y(kw)+3);
@@ -1145,7 +1140,7 @@ function drawRoofWind(){
   const pts = roofWindData ? roofWindData.pts : [];
   const forecast = getWindForecastKmh();
   const nowH = rwHour(new Date());
-  const padL = 34, padR = 24, padT = 16, padB = 26;
+  const padL = 34, padR = 30, padT = 16, padB = 26;
   const x0 = 0, x1 = 24;
   // round the top of the scale up to a multiple of 4 nice steps (5/10/20 km/h)
   const rawMax = Math.max(20, Math.max(...pts.map(p=>Math.max(nz(p.gust), p.kmh)), ...forecast.map(p=>p.kmh), 0));
@@ -1174,12 +1169,13 @@ function drawRoofWind(){
   }
   g.setLineDash([]);
 
-  // left axis: labels every 5 km/h (no gridlines, no tick marks)
+  // right axis: labels every 5 km/h (no gridlines, no tick marks)
   g.fillStyle = css("--mist");
-  g.font = "10px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
+  g.font = "14px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   const plotH = H - padT - padB;
   const labelEvery = plotH / (maxKmh/5) >= 12 ? 5 : 10;   // thin out labels when dense
-  for (let v = 0; v < maxKmh; v += labelEvery) g.fillText(v, 6, Y(v)+3);
+  g.textAlign = "right";
+  for (let v = 0; v < maxKmh; v += labelEvery) g.fillText(v, W - 6, Y(v)+3);
   g.textAlign = "center";
   for (let h = 0; h <= 24; h += 4) g.fillText(String(h).padStart(2,"0"), X(h), H-8);
   g.textAlign = "left";
@@ -1187,9 +1183,11 @@ function drawRoofWind(){
   g.fillStyle = "rgba(0,0,0,.35)";
   for (let h = 0; h <= 24; h++) g.fillRect(Math.round(X(h)), H-padB+2, 1, 1);
   g.fillStyle = css("--mist");
-  g.font = "9px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
-  g.fillText("km/h", 6, padT - 6);
-  g.fillText("Bft", W - padR - 2, padT - 6);
+  g.font = "14px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
+  g.fillText("Bft", 6, padT - 6);
+  g.textAlign = "right";
+  g.fillText("km/h", W - 6, padT - 6);
+  g.textAlign = "left";
   let lastLabelY = Infinity;
   g.textBaseline = "middle";
   for (let b = 1; b < BFT_KMH_BOUNDS.length; b++){
@@ -1200,7 +1198,7 @@ function drawRoofWind(){
     if (trueHi > maxKmh) break;
     const y = (Y(lo) + Y(trueHi)) / 2;
     if (lastLabelY - y >= 12){
-      g.fillText(b, W - padR + 4, y);
+      g.fillText(b, 6, y);
       lastLabelY = y;
     }
   }
