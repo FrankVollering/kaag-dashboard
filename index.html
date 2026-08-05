@@ -209,6 +209,10 @@
     #wxChart{flex:none;height:220px}
     footer{white-space:normal}
   }
+
+  body.hide-cursor {
+    cursor: none;
+  }
 </style>
 </head>
 <body>
@@ -1265,6 +1269,17 @@ if (tileEnabled("roofwind")){
   setInterval(loadRoofWind, 5 * 60 * 1000);
   window.addEventListener("resize", drawRoofWind);
 }
+
+let cursorTimer;
+document.body.classList.add('hide-cursor');
+
+document.addEventListener('mousemove', () => {
+  document.body.classList.remove('hide-cursor');
+  clearTimeout(cursorTimer);
+  cursorTimer = setTimeout(() => {
+    document.body.classList.add('hide-cursor');
+  }, 1000);
+});
 </script>
 </body>
 </html>
