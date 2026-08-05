@@ -9,11 +9,11 @@ const TILES = {
   weather:       true,   // forecast + temperature chart
   buienradar:    true,   // rain radar
   cam1:          false,   // ferry cam (live video, iframe)
+  "cam1-snap":   true,  // ferry cam, snapshot version (lighter on the Pi than cam1)
   roofwind:      true,   // Ecowitt roof wind meter
   windmap:       true,   // animated wind map
   cam2:          false,   // Kaag cam (live video, iframe)
+  "cam2-snap":   true,  // Kaag cam, snapshot version (lighter on the Pi than cam2)
   pv:            false,   // solar production (dummy data)
   marinetraffic: false,  // AIS ship map
-  "cam1-snap":   true,  // ferry cam, snapshot version (lighter on the Pi than cam1)
-  "cam2-snap":   true,  // Kaag cam, snapshot version (lighter on the Pi than cam2)
 };
