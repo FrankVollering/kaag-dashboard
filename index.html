@@ -47,10 +47,10 @@
     padding-bottom:6px;margin-bottom:8px;flex:0 0 auto;
     border-bottom:1px solid var(--hairline);
   }
-  .clock{font-size:16px;color:var(--mist);font-variant-numeric:tabular-nums}
+  .clock{font-size:22px;color:var(--mist);font-variant-numeric:tabular-nums}
   .next-steps-btn{
     margin-left:auto;background:var(--deep);border:none;color:var(--mist);
-    border-radius:99px;padding:6px 14px;font-size:16px;font-weight:500;
+    border-radius:99px;padding:6px 14px;font-size:22px;font-weight:500;
     letter-spacing:.02em;cursor:pointer;transition:background .15s ease,color .15s ease;
     font-family:var(--font);
   }
@@ -522,8 +522,8 @@ function drawWeatherChart(){
   const now = new Date();
   const nowH = now.getHours() + now.getMinutes()/60;
   const x0 = 0, x1 = 24;
-  const padL = 28, padR = 8, padT = 34, padB = 20;
-  const bftY = 10, iconY = 24;
+  const padL = 28, padR = 8, padT = 48, padB = 20;
+  const bftY = 10, iconY = 38;
   // axis floor: 0 when all temps are positive, otherwise the coldest reading
   const minT = Math.min(0, Math.floor(Math.min(...pts.map(p=>p.temp)) - 1));
   const maxT = Math.ceil(Math.max(...pts.map(p=>p.temp)) + 1);
@@ -610,13 +610,13 @@ function drawWeatherChart(){
     g.fill();
     g.restore();
   }
-  g.font = "10px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
+  g.font = "20px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   g.textAlign = "center";
   pts.forEach((p,i) => {
     if (i % 2 !== 0) return;
     const night = p.h < sunriseH || p.h > sunsetH;
     if (night && SUN_CODES.includes(p.code)){
-      drawMoonPhase(X(p.h), iconY - 3.5, 4.5, phase);
+      drawMoonPhase(X(p.h), iconY - 7, 9, phase);
     } else {
       const [, ic] = wmo(p.code);
       g.fillText(ic, X(p.h), iconY);
@@ -631,7 +631,7 @@ function drawWeatherChart(){
     g.fillText(beaufort(p.wind), X(p.h), bftY + 3);
   });
   g.textAlign = "left";
-  g.fillStyle = css("--mist"); g.font = "13px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
+  g.fillStyle = css("--mist"); g.font = "14px -apple-system,BlinkMacSystemFont,Inter,sans-serif";
   g.fillText("Bft", 2, bftY + 3);
 }
 if (tileEnabled("weather")){
@@ -775,7 +775,7 @@ if (tileEnabled("windmap")){
   function drawArrow(p, u, v, kn, alpha){
     if (alpha <= 0.01) return;
     const ang = Math.atan2(v, u);
-    const len = 11 + Math.min(16, kn * 0.7);
+    const len = (11 + Math.min(16, kn * 0.7)) * 2;
     const color = bftColor(beaufort(kn));
     const front = len * 0.55, tail = -len;
     cx.save();
@@ -785,7 +785,7 @@ if (tileEnabled("windmap")){
     grad.addColorStop(0, hexToRgba(color, 0));
     grad.addColorStop(1, hexToRgba(color, alpha.toFixed(3)));
     cx.strokeStyle = grad;
-    cx.lineWidth = 2.5;
+    cx.lineWidth = 5;
     cx.lineCap = "round";
     cx.beginPath();
     cx.moveTo(tail, 0); cx.lineTo(front, 0);
