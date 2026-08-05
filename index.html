@@ -131,9 +131,10 @@
     font-weight:700;
     font-size:46px;line-height:1;letter-spacing:-.03em;
     font-variant-numeric:tabular-nums;
+    color:var(--mist);
   }
   .wx-icon{font-size:36px;line-height:1}
-  .wx-desc{font-size:20px;color:var(--foam);font-weight:500}
+  .wx-desc{font-size:20px;color:var(--mist);font-weight:500}
   .wx-desc small{display:block;color:var(--mist);margin-top:3px;font-size:16px;font-weight:400}
   #wxChart{width:100%;flex:1;min-height:120px;display:block;margin-top:10px}
   .err{color:#d9480f;font-size:13px}
@@ -148,8 +149,8 @@
   }
   .track{flex:1;min-width:80px;height:4px;background:var(--hairline);border-radius:2px;position:relative}
   .track i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--breeze);border-radius:2px}
-  .tlabel{color:var(--foam);min-width:118px;font-weight:500;font-variant-numeric:tabular-nums}
-  #mapBft{min-width:auto;color:var(--foam);font-weight:600}
+  .tlabel{color:var(--mist);min-width:118px;font-weight:400;font-variant-numeric:tabular-nums}
+  #mapBft{min-width:auto;color:var(--mist);font-weight:400}
 
   /* ---------- cams ---------- */
   .cam{position:relative;width:100%;flex:1;min-height:120px;border-radius:16px;overflow:hidden;border:1px solid var(--hairline);background:#000}
@@ -164,6 +165,7 @@
     background:var(--deep);border-radius:12px;padding:8px 8px;
     margin-bottom:12px;flex:0 0 auto;
   }
+  [data-tile="roofwind"] .stat-bar{background:none;padding:8px 0}
   .fig{flex:1 1 0;min-width:0}
   .fig span{display:block;font-size:7px;letter-spacing:.02em;text-transform:uppercase;color:var(--mist);margin-bottom:1px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .fig b{font-weight:700;font-size:11px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -698,7 +700,7 @@ if (tileEnabled("buienradar")){
 ============================================================ */
 if (tileEnabled("windmap")){
   const map = L.map("map", {
-    center: [52.212, 4.545], zoom: 12,
+    center: [52.2030, 4.545], zoom: 13.2, zoomSnap: 0,
     zoomControl: false, dragging: false, scrollWheelZoom: false,
     doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false,
     attributionControl: true
@@ -1150,12 +1152,13 @@ function getWindForecastKmh(){
   const today = rwDay(new Date());
   const pts = [];
   for (let i = 0; i < hourly.time.length; i++){
-    // open-meteo's unixtime+timezone combo returns timestamps pre-shifted so
-    // that UTC getters read back the station's local wall-clock time.
     const d = new Date(hourly.time[i]*1000);
-    const dayStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
-    if (dayStr !== today) continue;
-    pts.push({ h: d.getUTCHours() + d.getUTCMinutes()/60, kmh: hourly.wind_speed_10m[i] * 1.852 });
+    if (rwDay(d) !== today){
+      // first point of tomorrow — add it as the 24h mark so the line reaches the chart's right edge
+      if (pts.length) pts.push({ h: 24, kmh: hourly.wind_speed_10m[i] * 1.852 });
+      break;
+    }
+    pts.push({ h: rwHour(d), kmh: hourly.wind_speed_10m[i] * 1.852 });
   }
   return pts;
 }
